@@ -1,7 +1,6 @@
 import os
 import threading
 from datetime import datetime, timedelta
-import asyncio
 
 import discord
 from tracker import MongoTrackerStore

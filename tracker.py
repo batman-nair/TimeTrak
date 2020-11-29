@@ -164,5 +164,7 @@ def testing():
     mg.add_user_activities_sample(guild_id, 'user2', ['activity1'], datetime.now()-timedelta(days=1), datetime.now()-timedelta(days=1)+timedelta(seconds=60))
     # different activity
     mg.add_user_activities_sample(guild_id, 'user3', ['activity2'], datetime.now()-timedelta(days=2)+timedelta(seconds=60), datetime.now()-timedelta(days=2)+timedelta(seconds=120))
-    
-# aggr = db1.aggregate([{'$unwind':'$sessions'}, {'$match':{'user_id':'12345'}}, {'$group':{'_id':'$user_id', "duration": {'$sum':"$sessions.duration"}} }])
+
+    # Better testing will be added    
+    if round(mg.get_last_user_activities(guild_id, 'user3')['activity1']) != 120:
+        print('TEST ERROR')
