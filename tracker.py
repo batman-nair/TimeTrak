@@ -37,7 +37,10 @@ class MongoTrackerStore(TrackerStoreBase):
     def add_tracked_users(self, guild_id, user_ids):
         user_db = self.db_['tracked_user_ids']
         print(f'DB: Adding tracked users for {guild_id}: {user_ids}')
-        user_db.find_one_and_update({'guild_id': str(guild_id)}, {'$push': {'tracked_users': {'$each': [str(user_id) for user_id in user_ids]}}}, upsert=True)
+        user_db.find_one_and_update(
+            {'guild_id': str(guild_id)}, 
+            {'$push': {'tracked_users': {'$each': [str(user_id) for user_id in user_ids]}}}, 
+            upsert=True)
 
     def get_tracked_users(self, guild_id):
         user_db = self.db_['tracked_user_ids']
@@ -46,46 +49,6 @@ class MongoTrackerStore(TrackerStoreBase):
             return []
         tracked_users = guild_tracker.get('tracked_users', [])
         return list(set(tracked_users))
-
-    def _setup_empty_user(self, guild_id, user_id):
-        guild_db = self.db_[str(guild_id)]
-        user_data = guild_db.find_one({'user_id': str(user_id)})
-        if user_data:    
-            return user_data
-        guild_db.insert_one({'user_id':str(user_id), 'ongoing_sessions':[], 'sessions':[]})
-        return guild_db.find_one({'user_id': str(user_id)})
-
-    def _update_and_check_is_new_ongoing_session(self, user_data, activity_name, start_time, duration):
-        for session in user_data['ongoing_sessions'][:]:
-            # Check if session is ongoing
-            if activity_name == session['name']:
-                session_end_time = session['start_time'] + timedelta(seconds=session['duration'])
-                # Continue on going session : update duration
-                if session_end_time + timedelta(seconds=self.session_break_delay_) > start_time:
-                    session['duration'] += duration
-                    return False
-                # New session, move last session to sessions list and create new ongoing session
-                else:
-                    user_data['ongoing_sessions'].remove(session)
-                    user_data['sessions'].append(session)
-                    return True
-        return True
-
-    def _clear_old_ongoing_sessions(self, user_data, end_time):
-        for session in user_data['ongoing_sessions'][:]:
-            session_end_time = session['start_time'] + timedelta(seconds=session['duration'])
-            if session_end_time + timedelta(seconds=self.session_break_delay_) < end_time:
-                user_data['ongoing_sessions'].remove(session)
-                user_data['sessions'].append(session)
-
-    def _add_new_ongoing_session(self, user_data, activity_name, start_time, duration):
-        user_data['ongoing_sessions'].append({'name': activity_name, 'start_time': start_time, 'duration': duration})
-
-
-    def _add_user_activity_sample(self, user_data, activity_name, start_time, end_time):
-        duration = (end_time - start_time).total_seconds()
-        if self._update_and_check_is_new_ongoing_session(user_data, activity_name, start_time, duration):
-            self._add_new_ongoing_session(user_data, activity_name, start_time, duration)
 
     def add_user_activities_sample(self, guild_id, user_id, activities, start_time, end_time):
         print(f'DB: Adding user {user_id} sample for {activities} from {start_time} to {end_time}')
@@ -98,10 +61,48 @@ class MongoTrackerStore(TrackerStoreBase):
             self._add_user_activity_sample(user_data, activity_name ,start_time, end_time)
         self._clear_old_ongoing_sessions(user_data, end_time)
         
-        guild_db.find_one_and_update({'user_id':str(user_id)}, {'$set': {
-            'ongoing_sessions': user_data['ongoing_sessions'],
-            'sessions': user_data['sessions']
+        guild_db.find_one_and_update(
+            {'user_id':str(user_id)}, 
+            {'$set': {
+                'ongoing_sessions': user_data['ongoing_sessions'],
+                'sessions': user_data['sessions']
             }}, upsert=False)
+
+    def _setup_empty_user(self, guild_id, user_id):
+        guild_db = self.db_[str(guild_id)]
+        user_data = guild_db.find_one({'user_id': str(user_id)})
+        if user_data:    
+            return user_data
+        guild_db.insert_one({'user_id':str(user_id), 'ongoing_sessions':[], 'sessions':[]})
+        return guild_db.find_one({'user_id': str(user_id)})
+
+    def _add_user_activity_sample(self, user_data, activity_name, start_time, end_time):
+        duration = (end_time - start_time).total_seconds()
+        if self._update_and_check_is_new_ongoing_session(user_data, activity_name, start_time, duration):
+            self._add_new_ongoing_session(user_data, activity_name, start_time, duration)
+
+    def _update_and_check_is_new_ongoing_session(self, user_data, activity_name, start_time, duration):
+        for session in user_data['ongoing_sessions'][:]:
+            if activity_name == session['name']:
+                session_end_time = session['start_time'] + timedelta(seconds=session['duration'])
+                if session_end_time + timedelta(seconds=self.session_break_delay_) > start_time:
+                    session['duration'] += duration
+                    return False
+                else:
+                    user_data['ongoing_sessions'].remove(session)
+                    user_data['sessions'].append(session)
+                    return True
+        return True
+
+    def _add_new_ongoing_session(self, user_data, activity_name, start_time, duration):
+        user_data['ongoing_sessions'].append({'name': activity_name, 'start_time': start_time, 'duration': duration})
+
+    def _clear_old_ongoing_sessions(self, user_data, end_time):
+        for session in user_data['ongoing_sessions'][:]:
+            session_end_time = session['start_time'] + timedelta(seconds=session['duration'])
+            if session_end_time + timedelta(seconds=self.session_break_delay_) < end_time:
+                user_data['ongoing_sessions'].remove(session)
+                user_data['sessions'].append(session)
 
     def get_last_user_activities(self, guild_id, user_id, from_time=None):
         guild_db = self.db_[str(guild_id)]
@@ -120,9 +121,11 @@ class MongoTrackerStore(TrackerStoreBase):
         match_data = {'user_id':str(user_id)}
         if from_time:
             match_data['sessions.start_time'] = {'$gt':from_time}
-        aggregate_activities_data = guild_db.aggregate([{'$unwind': '$sessions'}, 
-        {'$match': match_data}, 
-        {'$group': {'_id':'$sessions.name', 'duration': {'$sum': '$sessions.duration'}}}])
+        aggregate_activities_data = guild_db.aggregate([
+            {'$unwind': '$sessions'}, 
+            {'$match': match_data}, 
+            {'$group': {'_id':'$sessions.name', 'duration': {'$sum': '$sessions.duration'}}}
+            ])
         aggregate_activities_data = list(aggregate_activities_data)
         aggregated_user_activities = self.get_last_user_activities(guild_id, user_id, from_time=from_time)
         for data in aggregate_activities_data:
@@ -143,7 +146,10 @@ class MongoTrackerStore(TrackerStoreBase):
         user_db = self.db_['tracked_user_ids']
         guild_tracker = user_db.find_one({'guild_id':str(guild_id)})
         guild_tracker['tracked_users'][:] = [user_id for user_id in guild_tracker['tracked_users'][:] if user_id != str(user_id)]
-        user_db.find_one_and_update({'guild_id':str(guild_id)}, {'$set': {'tracked_users': guild_tracker['tracked_users']}}, upsert=False)
+        user_db.find_one_and_update(
+            {'guild_id':str(guild_id)}, 
+            {'$set': {'tracked_users': guild_tracker['tracked_users']}}, 
+            upsert=False)
 
 
 def testing():

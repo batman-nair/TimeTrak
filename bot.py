@@ -39,14 +39,16 @@ def check_data_structures(client):
             if tracked_user not in id_to_current_activities[str(guild.id)]:
                 id_to_current_activities[str(guild.id)][str(tracked_user)] = dict()
 
-def update_tracker_for_user(guild, user_id):
-    current_time = datetime.now()
+def update_tracker_for_user(guild, user_id, current_time=None):
+    if not current_time:
+        current_time = datetime.now()
+
     user = guild.get_member(int(user_id))
     if not user:
         print(f'User {user_id} not found in {guild.name}')
         return
 
-    user_activities = [activity.name for activity in user.activities if activity.type == discord.ActivityType.playing] # TODO: Need to add filter for games
+    user_activities = [activity.name for activity in user.activities if activity.type == discord.ActivityType.playing]
     if user_activities:
         print(f'Updating data for user {user} doing {user_activities}')    
     
@@ -73,12 +75,13 @@ def update_tracker(client):
     if is_tracker_running:
         threading.Timer(UPDATE_TIME, update_tracker, [client]).start()
     
+    current_time = datetime.now()
     check_data_structures(client)
     
-    print(f'Updating tracker {datetime.now()}')
+    print(f'Updating tracker {current_time}')
     for guild in client.guilds:
         for user_id in guild_to_tracked_users[str(guild.id)]:
-            update_tracker_for_user(guild, int(user_id))
+            update_tracker_for_user(guild, int(user_id), current_time)
 
 def get_relative_activity_data(guild, target_user, message_data):
     try:
@@ -87,7 +90,7 @@ def get_relative_activity_data(guild, target_user, message_data):
         if message_data[1] == "last":
             if message_data[2] == "session":
                 return tracker_store.get_last_user_activities(guild.id, target_user.id)
-            time_region = None
+            time_region = timedelta(seconds=0)
             if message_data[2] == "week":
                 time_region = timedelta(days=7)
             elif message_data[2] == "day":
@@ -124,9 +127,9 @@ async def on_message(message):
                 for mentioned_user in message.mentions:
                     user_list.add(mentioned_user.id)
                 if message_data[1] == 'everyone':
-                    member_list = await guild.fetch_members(limit=None).flatten()
-                    user_list = [member.id for member in member_list]
-                tracker_store.add_tracked_users(guild.id, user_list)
+                    user_list = await guild.fetch_members(limit=None).flatten()
+                    user_id_list = [user.id for user in user_list]
+                tracker_store.add_tracked_users(guild.id, user_id_list)
             except:
                 message.channel.send('Give `-track everyone` or `-track ` and mention list of users to be tracked')
                 print(f'Error extracting data from message {message}')
@@ -145,15 +148,13 @@ async def on_message(message):
                 activity_data = tracker_store.get_aggregated_user_activities(guild.id, target_user.id)
             print(f'Got activity data {activity_data}')
             if not activity_data:
-                await message.channel.send(f'No activity data available for {target_user.name}. Maybe your game activity isn\'t visible or you didn\'t play anything')
+                await message.channel.send(f'No play time data available for user {target_user.name}. Maybe your game activity isn\'t visible or you didn\'t play anything')
                 return 
-            reply_string = f'Activites for user {target_user.name}:\n'
+            reply_string = f'Play times for user {target_user.name}:\n'
             for activity_name, duration in activity_data.items():
                 reply_string += activity_name + ": {:0>8}".format(str(timedelta(seconds=round(duration)))) + '\n'
 
             await message.channel.send(reply_string)
-        
-             
 
 client.run(TOKEN)
 
