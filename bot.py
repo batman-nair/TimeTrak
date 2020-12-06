@@ -157,11 +157,16 @@ async def on_message(message):
             await message.channel.send(reply_string)
         
         elif message_data[0] == 'reset':
+            if 'Rjn_Kirito' not in message.author.name:
+                message.channel.send('I\'m sorry, but you don\'t have the permission to do that... right now anyways')
+                return
             target_users = [message.author]
             if message.mentions:
                 target_users = message.mentions
             reply_string = f'Resetting tracked data for {", ".join([user.name for user in target_users])}'
             print(reply_string)
+            for user in target_users:
+                tracker_store.reset_user_data(message.guild.id, user.id)
             await message.channel.send(reply_string)
 
 client.run(TOKEN)
