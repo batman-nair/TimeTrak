@@ -21,7 +21,13 @@ class TrackerStoreBase(metaclass=ABCMeta):
     def get_aggregated_user_activities(self, guild_id, user_id, from_time=None):
         return NotImplemented
     @abstractmethod
+    def reset_guild_data(self, guild_id):
+        return NotImplemented
+    @abstractmethod
     def delete_guild_data(self, guild_id):
+        return NotImplemented
+    @abstractmethod
+    def reset_user_data(self, guild_id, user_id):
         return NotImplemented
     @abstractmethod
     def delete_user_data(self, guild_id, user_id):
@@ -132,17 +138,21 @@ class MongoTrackerStore(TrackerStoreBase):
             aggregated_user_activities[data['_id']] = aggregated_user_activities.get(data['_id'], 0) + data['duration']
         return aggregated_user_activities
 
-    def delete_guild_data(self, guild_id):
+    def reset_guild_data(self, guild_id):
         guild_db = self.db_[str(guild_id)]
         guild_db.drop()
-        
+
+    def delete_guild_data(self, guild_id):
+        self.reset_guild_data(guild_id)
         user_db = self.db_['tracked_user_ids']
         user_db.delete_one({'guild_id': str(guild_id)})
 
-    def delete_user_data(self, guild_id, user_id):
+    def reset_user_data(self, guild_id, user_id):
         guild_db = self.db_[str(guild_id)]
         guild_db.delete_one({'user_id':str(user_id)})
 
+    def delete_user_data(self, guild_id, user_id):
+        self.reset_user_data(guild_id, user_id)
         user_db = self.db_['tracked_user_ids']
         guild_tracker = user_db.find_one({'guild_id':str(guild_id)})
         guild_tracker['tracked_users'][:] = [user_id for user_id in guild_tracker['tracked_users'][:] if user_id != str(user_id)]

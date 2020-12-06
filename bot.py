@@ -112,7 +112,7 @@ def get_relative_activity_data(guild, target_user, message_data):
 @client.event
 async def on_message(message):
     print('got message')
-    if message.author == client.user:
+    if message.author == client.user or message.author.bot:
         return
   
     if message.content.startswith('-'):
@@ -128,7 +128,7 @@ async def on_message(message):
                     user_list.add(mentioned_user.id)
                 if message_data[1] == 'everyone':
                     user_list = await guild.fetch_members(limit=None).flatten()
-                    user_id_list = [user.id for user in user_list]
+                    user_id_list = [user.id for user in user_list if not user.bot]
                 tracker_store.add_tracked_users(guild.id, user_id_list)
             except:
                 message.channel.send('Give `-track everyone` or `-track ` and mention list of users to be tracked')
@@ -154,6 +154,14 @@ async def on_message(message):
             for activity_name, duration in activity_data.items():
                 reply_string += activity_name + ": {:0>8}".format(str(timedelta(seconds=round(duration)))) + '\n'
 
+            await message.channel.send(reply_string)
+        
+        elif message_data[0] == 'reset':
+            target_users = [message.author]
+            if message.mentions:
+                target_users = message.mentions
+            reply_string = f'Resetting tracked data for {", ".join([user.name for user in target_users])}'
+            print(reply_string)
             await message.channel.send(reply_string)
 
 client.run(TOKEN)
