@@ -10,7 +10,7 @@ class TrakBot():
         self.update_time_ = update_time
         self.session_break_delay_ = session_break_delay
         self.guild_to_tracked_users_ = {}
-        self.user_to_current_activities_ = {}
+        self.guild_user_to_current_activities_ = {}
 
     def update_tracker(self):
         current_time = datetime.now()
@@ -25,25 +25,22 @@ class TrakBot():
             guild_id = str(guild.id)
             if guild_id not in self.guild_to_tracked_users_:
                 self.guild_to_tracked_users_[guild_id] = set()
-                self.user_to_current_activities_[guild_id] = dict()
+                self.guild_user_to_current_activities_[guild_id] = dict()
             tracked_users = self.tracker_store_.get_tracked_users(guild_id)
             self.guild_to_tracked_users_[guild_id].update(tracked_users)
             for tracked_user in tracked_users:
-                if tracked_user not in self.user_to_current_activities_[guild_id]:
-                    self.user_to_current_activities_[guild_id][str(tracked_user)] = dict()
+                if tracked_user not in self.guild_user_to_current_activities_[guild_id]:
+                    self.guild_user_to_current_activities_[guild_id][str(tracked_user)] = dict()
 
-    def _update_tracker_for_user(self, guild, user_id, current_time=None):
-        if not current_time:
-            current_time = datetime.now()
+    def _update_tracker_for_user(self, guild: discord.Guild, user_id: str, current_time: datetime=datetime.now()):
         user = guild.get_member(int(user_id))
         if not user:
             print(f'TrackBot: User {user_id} not found in {guild.name}')
             return
-
         user_activities = [activity.name for activity in user.activities if activity.type == discord.ActivityType.playing]
         if user_activities:
             print(f'TrackBot: Updating data for user {user} doing {user_activities}')
-        ongoing_activities = self.user_to_current_activities_[str(guild.id)][str(user.id)]
+        ongoing_activities = self.guild_user_to_current_activities_[str(guild.id)][str(user.id)]
         updated_activities = []
         continued_activites = []
         for activity_name in user_activities:

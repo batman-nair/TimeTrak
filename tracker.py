@@ -1,51 +1,52 @@
+from typing import Optional
 from datetime import datetime, timedelta
 from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
 
 class TrackerStoreBase(metaclass=ABCMeta):
-    def __init__(self, **kwargs):
-        self.session_break_delay_ = kwargs.get('session_break_delay', 10.0)  # seconds
+    def __init__(self, session_break_delay: Optional[float]=10.0):
+        self.session_break_delay_ = session_break_delay
     @abstractmethod
-    def add_tracked_users(self, guild_id, user_ids):
+    def add_tracked_users(self, guild_id: int, user_ids: list):
         return NotImplemented
     @abstractmethod
-    def get_tracked_users(self, guild_id):
+    def get_tracked_users(self, guild_id: int):
         return NotImplemented
     @abstractmethod
-    def add_user_activities_sample(self, guild_id, user_id, activities, start_time, end_time):
+    def add_user_activities_sample(self, guild_id: int, user_id: int, activities: list, start_time: datetime, end_time: datetime):
         return NotImplemented
     @abstractmethod
-    def get_last_user_activities(self, guild_id, user_id, from_time=None):
+    def get_last_user_activities(self, guild_id: int, user_id: int, from_time: Optional[datetime]=None):
         return NotImplemented
     @abstractmethod
-    def get_aggregated_user_activities(self, guild_id, user_id, from_time=None):
+    def get_aggregated_user_activities(self, guild_id: int, user_id: int, from_time: Optional[datetime]=None):
         return NotImplemented
     @abstractmethod
-    def reset_guild_data(self, guild_id):
+    def reset_guild_data(self, guild_id: int):
         return NotImplemented
     @abstractmethod
-    def delete_guild_data(self, guild_id):
+    def delete_guild_data(self, guild_id: int):
         return NotImplemented
     @abstractmethod
-    def reset_user_data(self, guild_id, user_id):
+    def reset_user_data(self, guild_id: int, user_id: int):
         return NotImplemented
     @abstractmethod
-    def delete_user_data(self, guild_id, user_id):
+    def delete_user_data(self, guild_id: int, user_id: int):
         return NotImplemented
-    
+
 class MongoTrackerStore(TrackerStoreBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        mongo_url = kwargs.get('mongo_url', None)   
+        mongo_url = kwargs.get('mongo_url', None)
         self.client_ = MongoClient(mongo_url)
         self.db_ = self.client_['user_data']
-    
+
     def add_tracked_users(self, guild_id, user_ids):
         user_db = self.db_['tracked_user_ids']
         print(f'DB: Adding tracked users for {guild_id}: {user_ids}')
         user_db.find_one_and_update(
-            {'guild_id': str(guild_id)}, 
-            {'$push': {'tracked_users': {'$each': [str(user_id) for user_id in user_ids]}}}, 
+            {'guild_id': str(guild_id)},
+            {'$push': {'tracked_users': {'$each': [str(user_id) for user_id in user_ids]}}},
             upsert=True)
 
     def get_tracked_users(self, guild_id):
@@ -62,13 +63,13 @@ class MongoTrackerStore(TrackerStoreBase):
         user_data = guild_db.find_one({'user_id':str(user_id)})
         if not user_data:
             user_data = self._setup_empty_user(guild_id, user_id)
-        
+
         for activity_name in activities:
             self._add_user_activity_sample(user_data, activity_name ,start_time, end_time)
         self._clear_old_ongoing_sessions(user_data, end_time)
-        
+
         guild_db.find_one_and_update(
-            {'user_id':str(user_id)}, 
+            {'user_id':str(user_id)},
             {'$set': {
                 'ongoing_sessions': user_data['ongoing_sessions'],
                 'sessions': user_data['sessions']
@@ -77,7 +78,7 @@ class MongoTrackerStore(TrackerStoreBase):
     def _setup_empty_user(self, guild_id, user_id):
         guild_db = self.db_[str(guild_id)]
         user_data = guild_db.find_one({'user_id': str(user_id)})
-        if user_data:    
+        if user_data:
             return user_data
         guild_db.insert_one({'user_id':str(user_id), 'ongoing_sessions':[], 'sessions':[]})
         return guild_db.find_one({'user_id': str(user_id)})
@@ -128,8 +129,8 @@ class MongoTrackerStore(TrackerStoreBase):
         if from_time:
             match_data['sessions.start_time'] = {'$gt':from_time}
         aggregate_activities_data = guild_db.aggregate([
-            {'$unwind': '$sessions'}, 
-            {'$match': match_data}, 
+            {'$unwind': '$sessions'},
+            {'$match': match_data},
             {'$group': {'_id':'$sessions.name', 'duration': {'$sum': '$sessions.duration'}}}
             ])
         aggregate_activities_data = list(aggregate_activities_data)
@@ -157,8 +158,8 @@ class MongoTrackerStore(TrackerStoreBase):
         guild_tracker = user_db.find_one({'guild_id':str(guild_id)})
         guild_tracker['tracked_users'][:] = [user_id for user_id in guild_tracker['tracked_users'][:] if user_id != str(user_id)]
         user_db.find_one_and_update(
-            {'guild_id':str(guild_id)}, 
-            {'$set': {'tracked_users': guild_tracker['tracked_users']}}, 
+            {'guild_id':str(guild_id)},
+            {'$set': {'tracked_users': guild_tracker['tracked_users']}},
             upsert=False)
 
 
@@ -170,7 +171,7 @@ def testing():
 
     load_dotenv()
     mongo_url = os.getenv('MONGO_URL')
-    
+
     mg = MongoTrackerStore(mongo_url=mongo_url)
 
     guild_id = 'test_guild'
@@ -191,6 +192,6 @@ def testing():
     # different activity
     mg.add_user_activities_sample(guild_id, 'user3', ['activity2'], datetime.now()-timedelta(days=2)+timedelta(seconds=60), datetime.now()-timedelta(days=2)+timedelta(seconds=120))
 
-    # Better testing will be added    
+    # Better testing will be added
     if round(mg.get_last_user_activities(guild_id, 'user3')['activity1']) != 120:
         print('TEST ERROR')
