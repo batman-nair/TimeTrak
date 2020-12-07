@@ -5,83 +5,28 @@ from datetime import datetime, timedelta
 import discord
 from tracker import MongoTrackerStore
 from dotenv import load_dotenv
+from bot import TrakBot
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 MONGO_URL = os.getenv('MONGO_URL')
-
 UPDATE_TIME = 60.0 # seconds
 SESSION_BREAK_DELAY = 10.0
+IS_TRACKER_RUNNING = True
 
 tracker_store = MongoTrackerStore(mongo_url=MONGO_URL, session_break_delay=SESSION_BREAK_DELAY)
 client = discord.Client(intents=discord.Intents.all())
-
-is_tracker_running = True
-guild_to_tracked_users = {}
-# guild -> user_id -> {activity_name: start_time} 
-id_to_current_activities = {}
-
+bot = TrakBot(client, tracker_store, UPDATE_TIME, SESSION_BREAK_DELAY)
 
 @client.event
 async def on_ready():
     update_tracker(client)
 
-def check_data_structures(client):
-    global guild_to_tracked_users
-    global id_to_current_activities
-    for guild in client.guilds:
-        if str(guild.id) not in guild_to_tracked_users:
-            guild_to_tracked_users[str(guild.id)] = set()
-            id_to_current_activities[str(guild.id)] = dict()
-        tracked_users = tracker_store.get_tracked_users(guild.id)
-        guild_to_tracked_users[str(guild.id)].update(tracked_users)
-        for tracked_user in tracked_users:
-            if tracked_user not in id_to_current_activities[str(guild.id)]:
-                id_to_current_activities[str(guild.id)][str(tracked_user)] = dict()
-
-def update_tracker_for_user(guild, user_id, current_time=None):
-    if not current_time:
-        current_time = datetime.now()
-
-    user = guild.get_member(int(user_id))
-    if not user:
-        print(f'User {user_id} not found in {guild.name}')
-        return
-
-    user_activities = [activity.name for activity in user.activities if activity.type == discord.ActivityType.playing]
-    if user_activities:
-        print(f'Updating data for user {user} doing {user_activities}')    
-    
-    ongoing_activities = id_to_current_activities[str(guild.id)][str(user.id)]
-    updated_activities = [] 
-    continued_activites = []
-
-    for activity_name in user_activities:
-        prev_start_time = ongoing_activities.get(activity_name, None)
-        if prev_start_time and prev_start_time + timedelta(seconds=UPDATE_TIME+SESSION_BREAK_DELAY) > current_time:
-            continued_activites.append(activity_name)
-        updated_activities.append(activity_name)
-    if continued_activites:
-        tracker_store.add_user_activities_sample(guild.id, user.id, continued_activites, prev_start_time, current_time)
-    ongoing_activities.clear()
-    for activity_name in updated_activities:
-        ongoing_activities[activity_name] = current_time
-
 def update_tracker(client):
-    global is_tracker_running
-    global guild_to_tracked_users
-    global id_to_current_activities
-
-    if is_tracker_running:
+    if IS_TRACKER_RUNNING:
         threading.Timer(UPDATE_TIME, update_tracker, [client]).start()
-    
-    current_time = datetime.now()
-    check_data_structures(client)
-    
-    print(f'Updating tracker {current_time}')
-    for guild in client.guilds:
-        for user_id in guild_to_tracked_users[str(guild.id)]:
-            update_tracker_for_user(guild, int(user_id), current_time)
+
+    bot.update_tracker()
 
 def get_relative_activity_data(guild, target_user, message_data):
     try:
@@ -114,12 +59,12 @@ async def on_message(message):
     print('got message')
     if message.author == client.user or message.author.bot:
         return
-  
+
     if message.content.startswith('-'):
         guild = message.guild
         message_data = message.content[1:].split()
         if not len(message_data):
-            return    
+            return
 
         if message_data[0] == 'track':
             user_list = set()
@@ -141,7 +86,7 @@ async def on_message(message):
             print(f'Targetting user {target_user.name} {target_user.id}')
             guild = message.guild
             activity_data = {}
-            
+
             if len(message_data) > 1 and message_data[1] == "last":
                 activity_data = get_relative_activity_data(guild, target_user, message_data)
             else:
@@ -149,13 +94,13 @@ async def on_message(message):
             print(f'Got activity data {activity_data}')
             if not activity_data:
                 await message.channel.send(f'No play time data available for user {target_user.name}. Maybe your game activity isn\'t visible or you didn\'t play anything')
-                return 
+                return
             reply_string = f'Play times for user {target_user.name}:\n'
             for activity_name, duration in activity_data.items():
                 reply_string += activity_name + ": {:0>8}".format(str(timedelta(seconds=round(duration)))) + '\n'
 
             await message.channel.send(reply_string)
-        
+
         elif message_data[0] == 'reset':
             if 'Rjn_Kirito' not in message.author.name:
                 message.channel.send('I\'m sorry, but you don\'t have the permission to do that... right now anyways')
@@ -171,5 +116,5 @@ async def on_message(message):
 
 client.run(TOKEN)
 
-is_tracker_running = False
+IS_TRACKER_RUNNING = False
 print('Run stopped, stopping thread')

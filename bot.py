@@ -1,0 +1,59 @@
+from datetime import datetime, timedelta
+
+import discord
+from tracker import TrackerStoreBase
+
+class TrakBot():
+    def __init__(self, client: discord.Client, tracker_store: TrackerStoreBase, update_time: int, session_break_delay: int = 10):
+        self.client_ = client
+        self.tracker_store_ = tracker_store
+        self.update_time_ = update_time
+        self.session_break_delay_ = session_break_delay
+        self.guild_to_tracked_users_ = {}
+        self.user_to_current_activities_ = {}
+
+    def update_tracker(self):
+        current_time = datetime.now()
+        self._check_data_structures()
+        print(f'TrackBot: Updating tracker {current_time}')
+        for guild in self.client_.guilds:
+            for user_id in self.guild_to_tracked_users_[str(guild.id)]:
+                self._update_tracker_for_user(guild, int(user_id), current_time)
+
+    def _check_data_structures(self):
+        for guild in self.client_.guilds:
+            guild_id = str(guild.id)
+            if guild_id not in self.guild_to_tracked_users_:
+                self.guild_to_tracked_users_[guild_id] = set()
+                self.user_to_current_activities_[guild_id] = dict()
+            tracked_users = self.tracker_store_.get_tracked_users(guild_id)
+            self.guild_to_tracked_users_[guild_id].update(tracked_users)
+            for tracked_user in tracked_users:
+                if tracked_user not in self.user_to_current_activities_[guild_id]:
+                    self.user_to_current_activities_[guild_id][str(tracked_user)] = dict()
+
+    def _update_tracker_for_user(self, guild, user_id, current_time=None):
+        if not current_time:
+            current_time = datetime.now()
+        user = guild.get_member(int(user_id))
+        if not user:
+            print(f'TrackBot: User {user_id} not found in {guild.name}')
+            return
+
+        user_activities = [activity.name for activity in user.activities if activity.type == discord.ActivityType.playing]
+        if user_activities:
+            print(f'TrackBot: Updating data for user {user} doing {user_activities}')
+        ongoing_activities = self.user_to_current_activities_[str(guild.id)][str(user.id)]
+        updated_activities = []
+        continued_activites = []
+        for activity_name in user_activities:
+            prev_start_time = ongoing_activities.get(activity_name, None)
+            if prev_start_time and prev_start_time + timedelta(seconds=self.update_time_+self.session_break_delay_) > current_time:
+                continued_activites.append(activity_name)
+            updated_activities.append(activity_name)
+
+        if continued_activites:
+            self.tracker_store_.add_user_activities_sample(guild.id, user.id, continued_activites, prev_start_time, current_time)
+        ongoing_activities.clear()
+        for activity_name in updated_activities:
+            ongoing_activities[activity_name] = current_time
