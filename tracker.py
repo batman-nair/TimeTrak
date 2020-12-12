@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
 
 class TrackerStoreBase(metaclass=ABCMeta):
-    def __init__(self, session_break_delay: Optional[float]=10.0):
+    def __init__(self, session_break_delay: Optional[float]=10.0, **kwargs):
         self.session_break_delay_ = session_break_delay
     @abstractmethod
     def add_tracked_users(self, guild_id: int, user_ids: list):
