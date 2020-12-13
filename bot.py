@@ -56,3 +56,17 @@ class TrakBot():
         ongoing_activities.clear()
         for activity_name in updated_activities:
             ongoing_activities[activity_name] = current_time
+
+if __name__ == '__main__':
+    import os
+    from dotenv import load_dotenv
+    from tracker import MongoTrackerStore
+    import asyncio
+    load_dotenv()
+    discord_token = os.getenv('DISCORD_TOKEN')
+    mongo_url = os.getenv('MONGO_URL')
+    tracker_store = MongoTrackerStore(mongo_url=mongo_url)
+    client = discord.Client(intents=discord.Intents.all())
+    print('Do a Ctrl-c to get out of the start loop after some time so data is updated')
+    asyncio.run(client.start(discord_token))
+    bot = TrakBot(client, tracker_store, 60)

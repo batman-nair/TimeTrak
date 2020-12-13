@@ -179,6 +179,13 @@ class MongoTrackerStore(TrackerStoreBase):
             {'$set': {'blacklisted_users': guild_tracker['blacklisted_users']}},
             upsert=False)
 
+if __name__ == '__main__':
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    mongo_url = os.getenv('MONGO_URL')
+
+    mg = MongoTrackerStore(mongo_url=mongo_url)
 
 # TODO: Unit testing
 # def testing():
