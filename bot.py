@@ -26,7 +26,9 @@ class TrakBot():
             if guild_id not in self.guild_to_tracked_users_:
                 self.guild_to_tracked_users_[guild_id] = set()
                 self.guild_user_to_current_activities_[guild_id] = dict()
-            tracked_users = self.tracker_store_.get_tracked_users(guild_id)
+            all_users = [str(user.id) for user in guild.members if not user.bot]
+            blacklisted_users = self.tracker_store_.get_blacklisted_users(guild_id)
+            tracked_users = list(filter(lambda user_id: user_id not in blacklisted_users, all_users))
             self.guild_to_tracked_users_[guild_id].update(tracked_users)
             for tracked_user in tracked_users:
                 if tracked_user not in self.guild_user_to_current_activities_[guild_id]:

@@ -67,17 +67,20 @@ async def on_message(message):
             return
 
         if message_data[0] == 'track':
-            user_list = set()
-            try:
-                for mentioned_user in message.mentions:
-                    user_list.add(mentioned_user.id)
-                if message_data[1] == 'everyone':
-                    user_list = await guild.fetch_members(limit=None).flatten()
-                    user_id_list = [user.id for user in user_list if not user.bot]
-                tracker_store.add_tracked_users(guild.id, user_id_list)
-            except:
-                message.channel.send('Give `-track everyone` or `-track ` and mention list of users to be tracked')
-                print(f'Error extracting data from message {message}')
+            assert 0, 'Track command deprecated now'
+            return
+            # TODO: Add blacklist option
+            # user_list = set()
+            # try:
+            #     for mentioned_user in message.mentions:
+            #         user_list.add(mentioned_user.id)
+            #     if message_data[1] == 'everyone':
+            #         user_list = await guild.fetch_members(limit=None).flatten()
+            #         user_id_list = [user.id for user in user_list if not user.bot]
+            #     tracker_store.add_tracked_users(guild.id, user_id_list)
+            # except:
+            #     message.channel.send('Give `-track everyone` or `-track ` and mention list of users to be tracked')
+            #     print(f'Error extracting data from message {message}')
 
         elif message_data[0] == 'stats':
             target_user = message.author

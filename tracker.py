@@ -7,10 +7,13 @@ class TrackerStoreBase(metaclass=ABCMeta):
     def __init__(self, session_break_delay: Optional[float]=10.0, **kwargs):
         self.session_break_delay_ = session_break_delay
     @abstractmethod
-    def add_tracked_users(self, guild_id: int, user_ids: list):
+    def add_blacklisted_users(self, guild_id: int, user_ids: list):
         return NotImplemented
     @abstractmethod
-    def get_tracked_users(self, guild_id: int):
+    def remove_blacklisted_users(self, guild_id: int, user_ids: list):
+        return NotImplemented
+    @abstractmethod
+    def get_blacklisted_users(self, guild_id: int):
         return NotImplemented
     @abstractmethod
     def add_user_activities_sample(self, guild_id: int, user_id: int, activities: list, start_time: datetime, end_time: datetime):
@@ -41,21 +44,35 @@ class MongoTrackerStore(TrackerStoreBase):
         self.client_ = MongoClient(mongo_url)
         self.db_ = self.client_['user_data']
 
-    def add_tracked_users(self, guild_id, user_ids):
-        user_db = self.db_['tracked_user_ids']
-        print(f'DB: Adding tracked users for {guild_id}: {user_ids}')
+    def add_blacklisted_users(self, guild_id, user_ids):
+        user_db = self.db_['blacklisted_user_ids']
+        print(f'DB: Adding blacklisted users for {guild_id}: {user_ids}')
         user_db.find_one_and_update(
             {'guild_id': str(guild_id)},
-            {'$push': {'tracked_users': {'$each': [str(user_id) for user_id in user_ids]}}},
+            {'$push': {'blacklisted_users': {'$each': [str(user_id) for user_id in user_ids]}}},
             upsert=True)
 
-    def get_tracked_users(self, guild_id):
-        user_db = self.db_['tracked_user_ids']
+    def remove_blacklisted_users(self, guild_id, user_ids):
+        user_db = self.db_['blacklisted_user_ids']
+        guild_tracker = user_db.find_one({'guild_id':str(guild_id)})
+        if not guild_tracker:
+            return False
+        print(f'DB: Removing blacklisted users for {guild_id}: {user_ids}')
+        user_ids_str = list(map(str, user_ids))
+        blacklisted_users = guild_tracker['blacklisted_users']
+        blacklisted_users[:] = list(filter(lambda user_id: user_id not in user_ids_str, blacklisted_users))
+        user_db.find_one_and_update(
+            {'guild_id':str(guild_id)},
+            {'$set': {'blacklisted_users': guild_tracker['blacklisted_users']}},
+            upsert=False)
+
+    def get_blacklisted_users(self, guild_id):
+        user_db = self.db_['blacklisted_user_ids']
         guild_tracker = user_db.find_one({'guild_id': str(guild_id)})
         if not guild_tracker:
             return []
-        tracked_users = guild_tracker.get('tracked_users', [])
-        return list(set(tracked_users))
+        blacklisted_users = guild_tracker.get('blacklisted_users', [])
+        return list(set(blacklisted_users))
 
     def add_user_activities_sample(self, guild_id, user_id, activities, start_time, end_time):
         print(f'DB: Adding user {user_id} sample for {activities} from {start_time} to {end_time}')
@@ -145,7 +162,7 @@ class MongoTrackerStore(TrackerStoreBase):
 
     def delete_guild_data(self, guild_id):
         self.reset_guild_data(guild_id)
-        user_db = self.db_['tracked_user_ids']
+        user_db = self.db_['blacklisted_user_ids']
         user_db.delete_one({'guild_id': str(guild_id)})
 
     def reset_user_data(self, guild_id, user_id):
@@ -154,44 +171,45 @@ class MongoTrackerStore(TrackerStoreBase):
 
     def delete_user_data(self, guild_id, user_id):
         self.reset_user_data(guild_id, user_id)
-        user_db = self.db_['tracked_user_ids']
+        user_db = self.db_['blacklisted_user_ids']
         guild_tracker = user_db.find_one({'guild_id':str(guild_id)})
-        guild_tracker['tracked_users'][:] = [user_id for user_id in guild_tracker['tracked_users'][:] if user_id != str(user_id)]
+        guild_tracker['blacklisted_users'][:] = [user_id for user_id in guild_tracker['blacklisted_users'][:] if user_id != str(user_id)]
         user_db.find_one_and_update(
             {'guild_id':str(guild_id)},
-            {'$set': {'tracked_users': guild_tracker['tracked_users']}},
+            {'$set': {'blacklisted_users': guild_tracker['blacklisted_users']}},
             upsert=False)
 
 
-def testing():
-    print('Testing trackers')
+# TODO: Unit testing
+# def testing():
+#     print('Testing trackers')
 
-    import os
-    from dotenv import load_dotenv
+#     import os
+#     from dotenv import load_dotenv
 
-    load_dotenv()
-    mongo_url = os.getenv('MONGO_URL')
+#     load_dotenv()
+#     mongo_url = os.getenv('MONGO_URL')
 
-    mg = MongoTrackerStore(mongo_url=mongo_url)
+#     mg = MongoTrackerStore(mongo_url=mongo_url)
 
-    guild_id = 'test_guild'
+#     guild_id = 'test_guild'
 
-    mg.delete_guild_data(guild_id)
+#     mg.delete_guild_data(guild_id)
 
-    mg.add_tracked_users(guild_id, ['user1', 'user2', 'user3'])
+#     mg.add_tracked_users(guild_id, ['user1', 'user2', 'user3'])
 
-    tracked_users = mg.get_tracked_users(guild_id)
-    print('tracked_users: ', tracked_users)
+#     tracked_users = mg.get_tracked_users(guild_id)
+#     print('tracked_users: ', tracked_users)
 
-    for user_id in tracked_users:
-        mg.add_user_activities_sample(guild_id, user_id, ['activity1'], datetime.now()-timedelta(days=2), datetime.now()-timedelta(days=2)+timedelta(seconds=60))
-    # continuous activity
-    mg.add_user_activities_sample(guild_id, 'user1', ['activity1'], datetime.now()-timedelta(days=2)+timedelta(seconds=60), datetime.now()-timedelta(days=2)+timedelta(seconds=120))
-    # new activity
-    mg.add_user_activities_sample(guild_id, 'user2', ['activity1'], datetime.now()-timedelta(days=1), datetime.now()-timedelta(days=1)+timedelta(seconds=60))
-    # different activity
-    mg.add_user_activities_sample(guild_id, 'user3', ['activity2'], datetime.now()-timedelta(days=2)+timedelta(seconds=60), datetime.now()-timedelta(days=2)+timedelta(seconds=120))
+#     for user_id in tracked_users:
+#         mg.add_user_activities_sample(guild_id, user_id, ['activity1'], datetime.now()-timedelta(days=2), datetime.now()-timedelta(days=2)+timedelta(seconds=60))
+#     # continuous activity
+#     mg.add_user_activities_sample(guild_id, 'user1', ['activity1'], datetime.now()-timedelta(days=2)+timedelta(seconds=60), datetime.now()-timedelta(days=2)+timedelta(seconds=120))
+#     # new activity
+#     mg.add_user_activities_sample(guild_id, 'user2', ['activity1'], datetime.now()-timedelta(days=1), datetime.now()-timedelta(days=1)+timedelta(seconds=60))
+#     # different activity
+#     mg.add_user_activities_sample(guild_id, 'user3', ['activity2'], datetime.now()-timedelta(days=2)+timedelta(seconds=60), datetime.now()-timedelta(days=2)+timedelta(seconds=120))
 
-    # Better testing will be added
-    if round(mg.get_last_user_activities(guild_id, 'user3')['activity1']) != 120:
-        print('TEST ERROR')
+#     # Better testing will be added
+#     if round(mg.get_last_user_activities(guild_id, 'user3')['activity1']) != 120:
+#         print('TEST ERROR')
