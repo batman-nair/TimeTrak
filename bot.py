@@ -57,6 +57,15 @@ class TrakBot():
         for activity_name in updated_activities:
             ongoing_activities[activity_name] = current_time
 
+    def get_aggregated_user_activity_data(self, guild_id: int, user_id: int, from_time: datetime=None):
+        self.tracker_store_.get_aggregated_user_activities(guild_id, user_id, from_time)
+
+    def get_last_user_activity_data(self, guild_id: int, user_id: int):
+        self.tracker_store_.get_last_user_activities(guild_id, user_id)
+
+    def reset_user_data(self, guild_id: int, user_id: int):
+        self.tracker_store_.reset_user_data(guild_id, user_id)
+
 if __name__ == '__main__':
     import os
     from dotenv import load_dotenv

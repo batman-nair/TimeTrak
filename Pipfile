@@ -8,6 +8,7 @@ discord = "*"
 python-dotenv = "*"
 pymongo = "*"
 dnspython = "*"
+humanize = "*"
 
 [dev-packages]
 
