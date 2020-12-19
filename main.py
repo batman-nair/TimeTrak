@@ -34,7 +34,7 @@ async def on_message(message):
     print('got message')
     if message.author == client.user or message.author.bot:
         return
-    parser.parse(message)
+    await parser.parse(message)
 
 client.run(TOKEN)
 

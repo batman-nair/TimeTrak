@@ -138,6 +138,7 @@ class MongoTrackerStore(TrackerStoreBase):
             if from_time and from_time > activity_data['start_time']:
                 continue
             last_user_activities[activity_data['name']] = activity_data['duration']
+        print(f'DB: user data for {guild_id}, {user_id} {from_time} {last_user_activities}')
         return last_user_activities
 
     def get_aggregated_user_activities(self, guild_id, user_id, from_time=None):
@@ -154,6 +155,7 @@ class MongoTrackerStore(TrackerStoreBase):
         aggregated_user_activities = self.get_last_user_activities(guild_id, user_id, from_time=from_time)
         for data in aggregate_activities_data:
             aggregated_user_activities[data['_id']] = aggregated_user_activities.get(data['_id'], 0) + data['duration']
+        print(f'DB: user data for {guild_id}, {user_id} {from_time} {aggregated_user_activities}')
         return aggregated_user_activities
 
     def reset_guild_data(self, guild_id):
