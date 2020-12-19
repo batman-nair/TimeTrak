@@ -31,25 +31,25 @@ class MessageParser():
         target_user = message.author
         if message.mentions:
             target_user = message.mentions[0]
-        print(f'Getting stats for user {target_user.name} {target_user.id}')
+        print(f'Parser: Getting stats for user {target_user.name} {target_user.id}')
         guild = message.guild
         activity_data = None
         time_region = None
 
-        if len(message_str.split()) == 1:
-            activity_data = self.bot_.get_aggregated_user_activity_data(guild.id, target_user.id, from_time=None)
-        elif re.match(r'.* (this|last) session', message_str):
+        if re.match(r'.* (this|last) session', message_str):
             activity_data = self.bot_.get_last_user_activity_data(guild.id, target_user.id)
         elif re.match(r'.* (\d+|last) (day|week|hour|minute)', message_str):
             search_res = re.search(r' (\d+|last) (day|week|hour|minute)', message_str)
             time_region = self._get_time_region_from_string(search_res[1], search_res[2])
             activity_data = self.bot_.get_aggregated_user_activity_data(guild.id, target_user.id, from_time = datetime.now() - time_region)
+        elif re.match(r'.* (total|full|forever)', message_str):
+            activity_data = self.bot_.get_aggregated_user_activity_data(guild.id, target_user.id, from_time=None)
         else:
-            await message.channel.send(self.INVALID_MESSAGE)
-            return
+            time_region = timedelta(days=7)
+            activity_data = self.bot_.get_aggregated_user_activity_data(guild.id, target_user.id, from_time = datetime.now() - time_region)
 
         print(f'Parser: Got activity data for {target_user}: {activity_data} for {time_region}')
-        reply_str = self._get_message_from_activity_data(activity_data, target_user.name)
+        reply_str = self._get_message_from_activity_data(activity_data, target_user.name, time_region)
         await message.channel.send(reply_str)
 
     def _get_time_region_from_string(self, time_str: str, unit_str: str):
@@ -71,7 +71,7 @@ class MessageParser():
             time_string = ' from ' + humanize.precisedelta(time_region) + ' ago'
         reply_string = f'Play times for {user_name}{time_string}:\n'
         for activity_name, duration in activity_data.items():
-            reply_string += activity_name + ': ' + humanize.precisedelta(timedelta(seconds=round(duration)), minimum_unit="minutes") + '\n'
+            reply_string += activity_name + ': ' + humanize.precisedelta(timedelta(seconds=round(duration)), minimum_unit='minutes', format='%d') + '\n'
         return reply_string
 
     async def _parse_reset_message(self, message: Message):
