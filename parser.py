@@ -23,6 +23,8 @@ class MessageParser():
             await self._parse_stats_message(message)
         elif command_word == 'reset':
             await self._parse_reset_message(message)
+        elif command_word == 'help':
+            await self._parse_help_message(message)
         else:
             await message.channel.send(self.INVALID_MESSAGE)
 
@@ -86,4 +88,14 @@ class MessageParser():
         for user in target_users:
             self.bot_.reset_user_data(message.guild.id, user.id)
         await message.channel.send(reply_string)
+
+    async def _parse_help_message(self, message: Message):
+        stats_help = f'''`{self.prefix_}stats` gives gamewise play time stats. By default the stats for a week is shown.
+        - Mention a user to get their stats
+        - Get total stats with `{self.prefix_}stats total`
+        - A specific time frame can be specified in weeks, days, hours or minutes. `{self.prefix_}stats 2 days`
+        - Get most recent play time stats with `{self.prefix_}stats last session`.
+        '''
+        final_help = '\n'.join([stats_help])
+        await message.channel.send(final_help)
 
