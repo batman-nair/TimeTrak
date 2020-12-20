@@ -6,15 +6,15 @@ from discord import Message
 from bot import TrakBot
 
 class MessageParser():
-    INVALID_MESSAGE = 'Didn\'t understand the command you gave. Try -help to see basic commands or refer my wiki.'
     def __init__(self, bot: TrakBot, prefix: str='-'):
         self.bot_ = bot
         self.prefix_ = prefix
+        self.invalid_message_ = f'Didn\'t understand the command you gave. Try `{self.prefix_}help` to see basic commands or refer my wiki.'
 
     async def parse(self, message: Message):
         if not message.content.startswith(self.prefix_):
             return
-        message_str = message.content[1:]
+        message_str = message.content[1:].lower()
         if len(message_str) == 0:
             return
         print('Parser: got message:', message_str)
@@ -26,7 +26,7 @@ class MessageParser():
         elif command_word == 'help':
             await self._parse_help_message(message)
         else:
-            await message.channel.send(self.INVALID_MESSAGE)
+            await message.channel.send(self.invalid_message_)
 
     async def _parse_stats_message(self, message: Message):
         message_str = message.content.lower()
@@ -67,13 +67,13 @@ class MessageParser():
 
     def _get_message_from_activity_data(self, activity_data: dict, user_name: str, time_region: timedelta=None):
         if not activity_data:
-            return f'No play time data available for {user_name}. Maybe your game activity isn\'t visible or you didn\'t play anything.'
+            return f'No play time data available for **{user_name}**. Maybe your game activity isn\'t visible or you didn\'t play anything.'
         time_string = ''
         if time_region:
             time_string = ' from ' + humanize.precisedelta(time_region) + ' ago'
-        reply_string = f'Play times for {user_name}{time_string}:\n'
+        reply_string = f'> Play times for **{user_name}**{time_string}:\n'
         for activity_name, duration in activity_data.items():
-            reply_string += activity_name + ': ' + humanize.precisedelta(timedelta(seconds=round(duration)), minimum_unit='minutes', format='%d') + '\n'
+            reply_string += '> **' + activity_name + '**: ' + humanize.precisedelta(timedelta(seconds=round(duration)), minimum_unit='minutes', format='%d') + '\n'
         return reply_string
 
     async def _parse_reset_message(self, message: Message):
@@ -90,10 +90,10 @@ class MessageParser():
         await message.channel.send(reply_string)
 
     async def _parse_help_message(self, message: Message):
-        stats_help = f'''`{self.prefix_}stats` gives gamewise play time stats. By default the stats for a week is shown.
+        stats_help = f'''`{self.prefix_}stats` gives gamewise play time stats. By default the stats for *a week* is shown.
         - Mention a user to get their stats
         - Get total stats with `{self.prefix_}stats total`
-        - A specific time frame can be specified in weeks, days, hours or minutes. `{self.prefix_}stats 2 days`
+        - A specific time frame can be specified in weeks, days, hours or minutes. eg: `{self.prefix_}stats 2 days`
         - Get most recent play time stats with `{self.prefix_}stats last session`.
         '''
         final_help = '\n'.join([stats_help])
