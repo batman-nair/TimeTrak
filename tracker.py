@@ -42,6 +42,7 @@ class MongoTrackerStore(TrackerStoreBase):
         super().__init__(**kwargs)
         mongo_url = kwargs.get('mongo_url', None)
         self.client_ = MongoClient(mongo_url)
+        self.debug_ = kwargs.get('debug', False)
         self.db_ = self.client_['user_data']
 
     def add_blacklisted_users(self, guild_id, user_ids):
@@ -75,6 +76,8 @@ class MongoTrackerStore(TrackerStoreBase):
         return list(set(blacklisted_users))
 
     def add_user_activities_sample(self, guild_id, user_id, activities, start_time, end_time):
+        if self.debug_:
+            return
         print(f'DB: Adding user {user_id} sample for {activities} from {start_time} to {end_time}')
         guild_db = self.db_[str(guild_id)]
         user_data = guild_db.find_one({'user_id':str(user_id)})

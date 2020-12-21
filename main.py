@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 from datetime import datetime, timedelta
 
@@ -14,11 +15,12 @@ MONGO_URL = os.getenv('MONGO_URL')
 UPDATE_TIME = 60.0 # seconds
 SESSION_BREAK_DELAY = 10.0
 IS_TRACKER_RUNNING = True
+DEBUG = len(sys.argv) > 1 and sys.argv[1] == 'debug'
 
-tracker_store = MongoTrackerStore(mongo_url=MONGO_URL, session_break_delay=SESSION_BREAK_DELAY)
+tracker_store = MongoTrackerStore(mongo_url=MONGO_URL, session_break_delay=SESSION_BREAK_DELAY, debug=DEBUG)
 client = discord.Client(intents=discord.Intents.all())
 bot = TrakBot(client, tracker_store, UPDATE_TIME, SESSION_BREAK_DELAY)
-parser = MessageParser(bot, prefix='-')
+parser = MessageParser(bot, prefix='-' if not DEBUG else '--')
 
 @client.event
 async def on_ready():

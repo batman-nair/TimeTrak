@@ -12,9 +12,9 @@ class MessageParser():
         self.invalid_message_ = f'Didn\'t understand the command you gave. Try `{self.prefix_}help` to see basic commands or refer my wiki.'
 
     async def parse(self, message: Message):
-        if not message.content.startswith(self.prefix_):
+        if not re.match(f'{self.prefix_}[a-zA-Z]', message.content):
             return
-        message_str = message.content[1:].lower()
+        message_str = message.content[len(self.prefix_):].lower()
         if len(message_str) == 0:
             return
         print('Parser: got message:', message_str)
