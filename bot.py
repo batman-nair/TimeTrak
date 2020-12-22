@@ -74,7 +74,7 @@ if __name__ == '__main__':
     load_dotenv()
     discord_token = os.getenv('DISCORD_TOKEN')
     mongo_url = os.getenv('MONGO_URL')
-    tracker_store = MongoTrackerStore(mongo_url=mongo_url)
+    tracker_store = MongoTrackerStore(mongo_url=mongo_url, debug=True)
     client = discord.Client(intents=discord.Intents.all())
     print('Do a Ctrl-c to get out of the start loop after some time so data is updated')
     asyncio.run(client.start(discord_token))
