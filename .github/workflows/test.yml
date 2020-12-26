@@ -20,6 +20,8 @@ jobs:
           python-version: 3.8
 
       - name: Install dependencies
-        run: pipenv install
+        run: |
+        pip install pipenv
+        pipenv install --deploy --dev
       - name: Run tests
         run: python -m unittest discover
