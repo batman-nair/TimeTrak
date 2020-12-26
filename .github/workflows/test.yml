@@ -23,5 +23,6 @@ jobs:
         run: |
         pip install pipenv
         pipenv install --deploy --dev
+
       - name: Run tests
         run: python -m unittest discover
