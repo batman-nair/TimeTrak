@@ -26,3 +26,6 @@ jobs:
 
       - name: Run tests
         run: pipenv run python -m unittest discover
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          MONGO_URL: ${{ secrets.MONGO_URL }}
