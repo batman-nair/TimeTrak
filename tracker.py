@@ -148,7 +148,7 @@ class MongoTrackerStore(TrackerStoreBase):
         guild_db = self.db_[str(guild_id)]
         match_data = {'user_id':str(user_id)}
         if from_time:
-            match_data['sessions.start_time'] = {'$gt':from_time}
+            match_data['sessions.start_time'] = {'$gte':from_time}
         aggregate_activities_data = guild_db.aggregate([
             {'$unwind': '$sessions'},
             {'$match': match_data},
@@ -191,37 +191,3 @@ if __name__ == '__main__':
     mongo_url = os.getenv('MONGO_URL')
 
     mg = MongoTrackerStore(mongo_url=mongo_url)
-
-# TODO: Unit testing
-# def testing():
-#     print('Testing trackers')
-
-#     import os
-#     from dotenv import load_dotenv
-
-#     load_dotenv()
-#     mongo_url = os.getenv('MONGO_URL')
-
-#     mg = MongoTrackerStore(mongo_url=mongo_url)
-
-#     guild_id = 'test_guild'
-
-#     mg.delete_guild_data(guild_id)
-
-#     mg.add_tracked_users(guild_id, ['user1', 'user2', 'user3'])
-
-#     tracked_users = mg.get_tracked_users(guild_id)
-#     print('tracked_users: ', tracked_users)
-
-#     for user_id in tracked_users:
-#         mg.add_user_activities_sample(guild_id, user_id, ['activity1'], datetime.now()-timedelta(days=2), datetime.now()-timedelta(days=2)+timedelta(seconds=60))
-#     # continuous activity
-#     mg.add_user_activities_sample(guild_id, 'user1', ['activity1'], datetime.now()-timedelta(days=2)+timedelta(seconds=60), datetime.now()-timedelta(days=2)+timedelta(seconds=120))
-#     # new activity
-#     mg.add_user_activities_sample(guild_id, 'user2', ['activity1'], datetime.now()-timedelta(days=1), datetime.now()-timedelta(days=1)+timedelta(seconds=60))
-#     # different activity
-#     mg.add_user_activities_sample(guild_id, 'user3', ['activity2'], datetime.now()-timedelta(days=2)+timedelta(seconds=60), datetime.now()-timedelta(days=2)+timedelta(seconds=120))
-
-#     # Better testing will be added
-#     if round(mg.get_last_user_activities(guild_id, 'user3')['activity1']) != 120:
-#         print('TEST ERROR')
