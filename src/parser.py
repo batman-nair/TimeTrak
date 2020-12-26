@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import humanize
 
 from discord import Message
-from bot import TrakBot
+from .bot import TrakBot
 
 class MessageParser():
     def __init__(self, bot: TrakBot, prefix: str='-'):

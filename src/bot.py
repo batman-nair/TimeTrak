@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 import discord
-from tracker import TrackerStoreBase
+from .tracker import TrackerStoreBase
 
 class TrakBot():
     def __init__(self, client: discord.Client, tracker_store: TrackerStoreBase, update_time: int, session_break_delay: int = 10):
@@ -69,7 +69,7 @@ class TrakBot():
 if __name__ == '__main__':
     import os
     from dotenv import load_dotenv
-    from tracker import MongoTrackerStore
+    from .tracker import MongoTrackerStore
     import asyncio
     load_dotenv()
     discord_token = os.getenv('DISCORD_TOKEN')
@@ -77,5 +77,5 @@ if __name__ == '__main__':
     tracker_store = MongoTrackerStore(mongo_url=mongo_url, debug=True)
     client = discord.Client(intents=discord.Intents.all())
     print('Do a Ctrl-c to get out of the start loop after some time so data is updated')
-    asyncio.run(client.start(discord_token))
+    client.run(discord_token)
     bot = TrakBot(client, tracker_store, 60)

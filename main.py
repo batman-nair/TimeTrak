@@ -4,10 +4,10 @@ import threading
 from datetime import datetime, timedelta
 
 import discord
-from tracker import MongoTrackerStore
+from src.tracker import MongoTrackerStore
 from dotenv import load_dotenv
-from bot import TrakBot
-from parser import MessageParser
+from src.bot import TrakBot
+from src.parser import MessageParser
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
