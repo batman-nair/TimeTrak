@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import discord
 from dotenv import load_dotenv
 import src.log as log
-from src.tracker import MongoTrackerStore
+from src.tracker import MongoDB
 from src.bot import TrakBot
 from src.parser import MessageParser
 
@@ -21,7 +21,7 @@ if DEBUG:
     log.set_log_level(log.Level.DEBUG)
 
 log = log.Logger('Main')
-tracker_store = MongoTrackerStore(mongo_url=MONGO_URL, session_break_delay=SESSION_BREAK_DELAY, debug=DEBUG)
+tracker_store = MongoDB(mongo_url=MONGO_URL, session_break_delay=SESSION_BREAK_DELAY, debug=DEBUG)
 client = discord.Client(intents=discord.Intents.all())
 bot = TrakBot(client, tracker_store, UPDATE_TIME, SESSION_BREAK_DELAY)
 parser = MessageParser(bot, prefix='-' if not DEBUG else '--')

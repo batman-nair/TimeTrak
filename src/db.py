@@ -7,7 +7,7 @@ from .log import Logger
 
 _log = Logger('DB')
 
-class TrackerStoreBase(metaclass=ABCMeta):
+class BaseDB(metaclass=ABCMeta):
     def __init__(self, session_break_delay: Optional[float]=10.0, **kwargs):
         self.session_break_delay_ = session_break_delay
         self.debug_ = kwargs.get('debug', False)
@@ -42,7 +42,7 @@ class TrackerStoreBase(metaclass=ABCMeta):
     def delete_user_data(self, guild_id: int, user_id: int):
         return NotImplemented
 
-class MongoTrackerStore(TrackerStoreBase):
+class MongoDB(BaseDB):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         mongo_url = kwargs.get('mongo_url', None)
@@ -196,4 +196,4 @@ if __name__ == '__main__':
     load_dotenv()
     mongo_url = os.getenv('MONGO_URL')
 
-    mg = MongoTrackerStore(mongo_url=mongo_url)
+    mg = MongoDB(mongo_url=mongo_url)

@@ -2,7 +2,7 @@ import os
 import unittest
 from datetime import datetime, timedelta
 
-from src.tracker import MongoTrackerStore
+from src.tracker import MongoDB
 from dotenv import load_dotenv
 
 class TestMongoTrackerStore(unittest.TestCase):
@@ -10,7 +10,7 @@ class TestMongoTrackerStore(unittest.TestCase):
     def setUp(self):
         load_dotenv()
         mongo_url = os.getenv('MONGO_URL')
-        self.mg_ = MongoTrackerStore(mongo_url=mongo_url)
+        self.mg_ = MongoDB(mongo_url=mongo_url)
         self.mg_.delete_guild_data(self.TEST_GUILD)
 
     def test_blacklist_functions(self):
