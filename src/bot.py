@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import discord
 from .log import Logger
-from .tracker import BaseDB
+from .db import BaseDB
 
 _log = Logger('TrakBot')
 
@@ -72,7 +72,7 @@ class TrakBot():
 if __name__ == '__main__':
     import os
     from dotenv import load_dotenv
-    from .tracker import MongoDB
+    from .db import MongoDB
     import asyncio
     load_dotenv()
     discord_token = os.getenv('DISCORD_TOKEN')

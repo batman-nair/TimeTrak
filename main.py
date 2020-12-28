@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import discord
 from dotenv import load_dotenv
 import src.log as log
-from src.tracker import MongoDB
+from src.db import MongoDB
 from src.bot import TrakBot
 from src.parser import MessageParser
 

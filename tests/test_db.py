@@ -2,7 +2,7 @@ import os
 import unittest
 from datetime import datetime, timedelta
 
-from src.tracker import MongoDB
+from src.db import MongoDB
 from dotenv import load_dotenv
 
 class TestMongoTrackerStore(unittest.TestCase):
