@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
 
 import discord
+from .log import Logger
 from .tracker import TrackerStoreBase
+
+_log = Logger('TrakBot')
 
 class TrakBot():
     def __init__(self, client: discord.Client, tracker_store: TrackerStoreBase, update_time: int, session_break_delay: int = 10):
@@ -15,7 +18,7 @@ class TrakBot():
     def update_tracker(self):
         current_time = datetime.now()
         self._check_data_structures()
-        print(f'TrackBot: Updating tracker {current_time}')
+        _log.info(f'Updating tracker {current_time}')
         for guild in self.client_.guilds:
             for user_id in self.guild_to_tracked_users_[str(guild.id)]:
                 self._update_tracker_for_user(guild, int(user_id), current_time)
@@ -37,11 +40,11 @@ class TrakBot():
     def _update_tracker_for_user(self, guild: discord.Guild, user_id: str, current_time: datetime=datetime.now()):
         user = guild.get_member(int(user_id))
         if not user:
-            print(f'TrackBot: User {user_id} not found in {guild.name}')
+            _log.warning(f'User {user_id} not found in {guild.name}')
             return
         user_activities = [activity.name for activity in user.activities if activity.type == discord.ActivityType.playing]
         if user_activities:
-            print(f'TrackBot: Updating data for user {user} doing {user_activities}')
+            _log.debug(f'Updating data for user {user} doing {user_activities}')
         ongoing_activities = self.guild_user_to_current_activities_[str(guild.id)][str(user.id)]
         updated_activities = []
         continued_activites = []
@@ -76,6 +79,6 @@ if __name__ == '__main__':
     mongo_url = os.getenv('MONGO_URL')
     tracker_store = MongoTrackerStore(mongo_url=mongo_url, debug=True)
     client = discord.Client(intents=discord.Intents.all())
-    print('Do a Ctrl-c to get out of the start loop after some time so data is updated')
+    _log.info('Do a Ctrl-c to get out of the start loop after some time so data is updated')
     client.run(discord_token)
     bot = TrakBot(client, tracker_store, 60)

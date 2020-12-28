@@ -3,7 +3,10 @@ from datetime import datetime, timedelta
 import humanize
 
 from discord import Message
+from .log import Logger
 from .bot import TrakBot
+
+_log = Logger('Parser')
 
 class MessageParser():
     def __init__(self, bot: TrakBot, prefix: str='-'):
@@ -17,7 +20,7 @@ class MessageParser():
         message_str = message.content[len(self.prefix_):].lower()
         if len(message_str) == 0:
             return
-        print('Parser: got message:', message_str)
+        _log.debug('got message:', message_str)
         command_word = message_str.split()[0]
         if command_word == 'stats':
             await self._parse_stats_message(message)
@@ -33,7 +36,7 @@ class MessageParser():
         target_user = message.author
         if message.mentions:
             target_user = message.mentions[0]
-        print(f'Parser: Getting stats for user {target_user.name} {target_user.id}')
+        _log.debug(f'Getting stats for user {target_user.name} {target_user.id}')
         guild = message.guild
         activity_data = None
         time_region = None
@@ -50,7 +53,7 @@ class MessageParser():
             time_region = timedelta(days=7)
             activity_data = self.bot_.get_aggregated_user_activity_data(guild.id, target_user.id, from_time = datetime.now() - time_region)
 
-        print(f'Parser: Got activity data for {target_user}: {activity_data} for {time_region}')
+        _log.debug(f'Got activity data for {target_user}: {activity_data} for {time_region}')
         reply_str = self._get_message_from_activity_data(activity_data, target_user.name, time_region)
         await message.channel.send(reply_str)
 
@@ -84,7 +87,7 @@ class MessageParser():
         if message.mentions:
             target_users = message.mentions
         reply_string = f'Resetting tracked data for {", ".join([user.name for user in target_users])}'
-        print('Parser:', reply_string)
+        _log.debug('Reset message ', reply_string)
         for user in target_users:
             self.bot_.reset_user_data(message.guild.id, user.id)
         await message.channel.send(reply_string)

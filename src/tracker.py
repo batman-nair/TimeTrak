@@ -3,9 +3,14 @@ from datetime import datetime, timedelta
 from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
 
+from .log import Logger
+
+_log = Logger('DB')
+
 class TrackerStoreBase(metaclass=ABCMeta):
     def __init__(self, session_break_delay: Optional[float]=10.0, **kwargs):
         self.session_break_delay_ = session_break_delay
+        self.debug_ = kwargs.get('debug', False)
     @abstractmethod
     def add_blacklisted_users(self, guild_id: int, user_ids: list):
         return NotImplemented
@@ -41,13 +46,14 @@ class MongoTrackerStore(TrackerStoreBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         mongo_url = kwargs.get('mongo_url', None)
+        if not mongo_url:
+            raise RuntimeError('Mongo URL not specified. Can\'t initialize database.')
         self.client_ = MongoClient(mongo_url)
-        self.debug_ = kwargs.get('debug', False)
         self.db_ = self.client_['user_data']
 
     def add_blacklisted_users(self, guild_id, user_ids):
         user_db = self.db_['blacklisted_user_ids']
-        print(f'DB: Adding blacklisted users for {guild_id}: {user_ids}')
+        _log.debug(f'Adding blacklisted users for {guild_id}: {user_ids}')
         user_db.find_one_and_update(
             {'guild_id': str(guild_id)},
             {'$push': {'blacklisted_users': {'$each': [str(user_id) for user_id in user_ids]}}},
@@ -58,7 +64,7 @@ class MongoTrackerStore(TrackerStoreBase):
         guild_tracker = user_db.find_one({'guild_id':str(guild_id)})
         if not guild_tracker:
             return False
-        print(f'DB: Removing blacklisted users for {guild_id}: {user_ids}')
+        _log.debug(f'Removing blacklisted users for {guild_id}: {user_ids}')
         user_ids_str = list(map(str, user_ids))
         blacklisted_users = guild_tracker['blacklisted_users']
         blacklisted_users[:] = list(filter(lambda user_id: user_id not in user_ids_str, blacklisted_users))
@@ -76,9 +82,9 @@ class MongoTrackerStore(TrackerStoreBase):
         return list(set(blacklisted_users))
 
     def add_user_activities_sample(self, guild_id, user_id, activities, start_time, end_time):
+        _log.debug(f'Adding {guild_id} user {user_id} sample for {activities} from {start_time} to {end_time}')
         if self.debug_:
             return
-        print(f'DB: Adding user {user_id} sample for {activities} from {start_time} to {end_time}')
         guild_db = self.db_[str(guild_id)]
         user_data = guild_db.find_one({'user_id':str(user_id)})
         if not user_data:
@@ -141,7 +147,7 @@ class MongoTrackerStore(TrackerStoreBase):
             if from_time and from_time > activity_data['start_time']:
                 continue
             last_user_activities[activity_data['name']] = activity_data['duration']
-        print(f'DB: user data for {guild_id}, {user_id} {from_time} {last_user_activities}')
+        _log.debug(f'user data for {guild_id}, {user_id} {user_data} {from_time} {last_user_activities}')
         return last_user_activities
 
     def get_aggregated_user_activities(self, guild_id, user_id, from_time=None):
@@ -158,7 +164,7 @@ class MongoTrackerStore(TrackerStoreBase):
         aggregated_user_activities = self.get_last_user_activities(guild_id, user_id, from_time=from_time)
         for data in aggregate_activities_data:
             aggregated_user_activities[data['_id']] = aggregated_user_activities.get(data['_id'], 0) + data['duration']
-        print(f'DB: user data for {guild_id}, {user_id} {from_time} {aggregated_user_activities}')
+        _log.debug(f'user data for {guild_id}, {user_id} {from_time} {aggregated_user_activities}')
         return aggregated_user_activities
 
     def reset_guild_data(self, guild_id):
