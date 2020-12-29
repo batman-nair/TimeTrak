@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from src.db import MongoDB
 from dotenv import load_dotenv
 
-class TestMongoTrackerStore(unittest.TestCase):
+class TestMongoDB(unittest.TestCase):
     TEST_GUILD = 'test_guild'
     def setUp(self):
         load_dotenv()
@@ -107,9 +107,6 @@ class TestMongoTrackerStore(unittest.TestCase):
         self.assertEqual(new_activities.get('activity2'), 60, "From time filter for activity query failed.")
         self.assertEqual(last_activities.get('activity1'), 120, "Last activity query is not correct.")
         self.assertEqual(last_activities.get('activity2'), 60, "Last activity query is not correct.")
-
-
-
 
 
 if __name__ == '__main__':

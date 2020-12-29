@@ -21,9 +21,9 @@ if DEBUG:
     log.set_log_level(log.Level.DEBUG)
 
 log = log.Logger('Main')
-tracker_store = MongoDB(mongo_url=MONGO_URL, session_break_delay=SESSION_BREAK_DELAY, debug=DEBUG)
+db = MongoDB(mongo_url=MONGO_URL, session_break_delay=SESSION_BREAK_DELAY, debug=DEBUG)
 client = discord.Client(intents=discord.Intents.all())
-bot = TrakBot(client, tracker_store, UPDATE_TIME, SESSION_BREAK_DELAY)
+bot = TrakBot(client, db, UPDATE_TIME, SESSION_BREAK_DELAY)
 parser = MessageParser(bot, prefix='-' if not DEBUG else '--')
 
 @client.event
@@ -31,13 +31,13 @@ async def on_ready():
     log.info('TimeTrak bot is ready!')
     update_tracker(client)
 
-def update_tracker(client):
+def update_tracker(client: discord.Client):
     if IS_TRACKER_RUNNING:
         threading.Timer(UPDATE_TIME, update_tracker, [client]).start()
     bot.update_tracker()
 
 @client.event
-async def on_message(message):
+async def on_message(message: discord.Message):
     log.debug('got message')
     if message.author == client.user or message.author.bot:
         return

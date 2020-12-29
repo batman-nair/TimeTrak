@@ -57,7 +57,7 @@ class MessageParser():
         reply_str = self._get_message_from_activity_data(activity_data, target_user.name, time_region)
         await message.channel.send(reply_str)
 
-    def _get_time_region_from_string(self, time_str: str, unit_str: str):
+    def _get_time_region_from_string(self, time_str: str, unit_str: str) -> timedelta:
         num = int(time_str) if time_str.isdigit() else 1
         if unit_str == "day":
             return timedelta(days=num)
@@ -68,7 +68,7 @@ class MessageParser():
         elif unit_str == "minute":
             return timedelta(minutes=num)
 
-    def _get_message_from_activity_data(self, activity_data: dict, user_name: str, time_region: timedelta=None):
+    def _get_message_from_activity_data(self, activity_data: dict, user_name: str, time_region: timedelta=None) -> str:
         if not activity_data:
             return f'No play time data available for **{user_name}**. Maybe your game activity isn\'t visible or you didn\'t play anything.'
         time_string = ''

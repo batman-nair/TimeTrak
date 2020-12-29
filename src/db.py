@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict
+from typing import Optional, Union, List, Dict
 from datetime import datetime, timedelta
 from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
@@ -6,40 +6,41 @@ from pymongo import MongoClient
 from .log import Logger
 
 _log = Logger('DB')
+IdType = Union[int, str]
 
 class BaseDB(metaclass=ABCMeta):
     def __init__(self, session_break_delay: Optional[float]=10.0, **kwargs):
         self.session_break_delay_ = session_break_delay
         self.debug_ = kwargs.get('debug', False)
     @abstractmethod
-    def add_blacklisted_users(self, guild_id: int, user_ids: list):
+    def add_blacklisted_users(self, guild_id: IdType, user_ids: List[IdType]):
         return NotImplemented
     @abstractmethod
-    def remove_blacklisted_users(self, guild_id: int, user_ids: list):
+    def remove_blacklisted_users(self, guild_id: IdType, user_ids: List[IdType]):
         return NotImplemented
     @abstractmethod
-    def get_blacklisted_users(self, guild_id: int):
+    def get_blacklisted_users(self, guild_id: IdType) -> List[IdType]:
         return NotImplemented
     @abstractmethod
-    def add_user_activities_sample(self, guild_id: int, user_id: int, activities: list, start_time: datetime, end_time: datetime):
+    def add_user_activities_sample(self, guild_id: IdType, user_id: IdType, activities: List[str], start_time: datetime, end_time: datetime):
         return NotImplemented
     @abstractmethod
-    def get_last_activities(self, guild_id: int, user_id: Optional[int]=None, from_time: Optional[datetime]=None):
+    def get_last_activities(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> Dict[str, float]:
         return NotImplemented
     @abstractmethod
-    def get_aggregated_activities(self, guild_id: int, user_id: Optional[int]=None, from_time: Optional[datetime]=None):
+    def get_aggregated_activities(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> Dict[str, float]:
         return NotImplemented
     @abstractmethod
-    def reset_guild_data(self, guild_id: int):
+    def reset_guild_data(self, guild_id: IdType):
         return NotImplemented
     @abstractmethod
-    def delete_guild_data(self, guild_id: int):
+    def delete_guild_data(self, guild_id: IdType):
         return NotImplemented
     @abstractmethod
-    def reset_user_data(self, guild_id: int, user_id: int):
+    def reset_user_data(self, guild_id: IdType, user_id: IdType):
         return NotImplemented
     @abstractmethod
-    def delete_user_data(self, guild_id: int, user_id: int):
+    def delete_user_data(self, guild_id: IdType, user_id: IdType):
         return NotImplemented
 
 class MongoDB(BaseDB):
@@ -51,7 +52,7 @@ class MongoDB(BaseDB):
         self.client_ = MongoClient(mongo_url)
         self.db_ = self.client_['user_data']
 
-    def add_blacklisted_users(self, guild_id, user_ids):
+    def add_blacklisted_users(self, guild_id: IdType, user_ids: List[IdType]):
         user_db = self.db_['blacklisted_user_ids']
         _log.debug(f'Adding blacklisted users for {guild_id}: {user_ids}')
         user_db.find_one_and_update(
@@ -59,7 +60,7 @@ class MongoDB(BaseDB):
             {'$push': {'blacklisted_users': {'$each': [str(user_id) for user_id in user_ids]}}},
             upsert=True)
 
-    def remove_blacklisted_users(self, guild_id, user_ids):
+    def remove_blacklisted_users(self, guild_id: IdType, user_ids: List[IdType]):
         user_db = self.db_['blacklisted_user_ids']
         guild_tracker = user_db.find_one({'guild_id':str(guild_id)})
         if not guild_tracker:
@@ -73,7 +74,7 @@ class MongoDB(BaseDB):
             {'$set': {'blacklisted_users': guild_tracker['blacklisted_users']}},
             upsert=False)
 
-    def get_blacklisted_users(self, guild_id):
+    def get_blacklisted_users(self, guild_id: IdType) -> List[IdType]:
         user_db = self.db_['blacklisted_user_ids']
         guild_tracker = user_db.find_one({'guild_id': str(guild_id)})
         if not guild_tracker:
@@ -81,7 +82,7 @@ class MongoDB(BaseDB):
         blacklisted_users = guild_tracker.get('blacklisted_users', [])
         return list(set(blacklisted_users))
 
-    def add_user_activities_sample(self, guild_id, user_id, activities, start_time, end_time):
+    def add_user_activities_sample(self, guild_id: IdType, user_id: IdType, activities: List[str], start_time: datetime, end_time: datetime):
         _log.debug(f'Adding {guild_id} user {user_id} sample for {activities} from {start_time} to {end_time}')
         if self.debug_:
             return
@@ -101,7 +102,7 @@ class MongoDB(BaseDB):
                 'sessions': user_data['sessions']
             }}, upsert=False)
 
-    def _setup_empty_user(self, guild_id, user_id):
+    def _setup_empty_user(self, guild_id: IdType, user_id: IdType) -> dict:
         guild_db = self.db_[str(guild_id)]
         user_data = guild_db.find_one({'user_id': str(user_id)})
         if user_data:
@@ -109,12 +110,12 @@ class MongoDB(BaseDB):
         guild_db.insert_one({'user_id':str(user_id), 'ongoing_sessions':[], 'sessions':[]})
         return guild_db.find_one({'user_id': str(user_id)})
 
-    def _add_user_activity_sample(self, user_data, activity_name, start_time, end_time):
+    def _add_user_activity_sample(self, user_data: dict, activity_name: str, start_time: datetime, end_time: datetime):
         duration = (end_time - start_time).total_seconds()
         if self._update_and_check_is_new_ongoing_session(user_data, activity_name, start_time, duration):
             self._add_new_ongoing_session(user_data, activity_name, start_time, duration)
 
-    def _update_and_check_is_new_ongoing_session(self, user_data, activity_name, start_time, duration):
+    def _update_and_check_is_new_ongoing_session(self, user_data: dict, activity_name: str, start_time: datetime, duration: float) -> bool:
         for session in user_data['ongoing_sessions'][:]:
             if activity_name == session['name']:
                 session_end_time = session['start_time'] + timedelta(seconds=session['duration'])
@@ -127,22 +128,22 @@ class MongoDB(BaseDB):
                     return True
         return True
 
-    def _add_new_ongoing_session(self, user_data, activity_name, start_time, duration):
+    def _add_new_ongoing_session(self, user_data: dict, activity_name: str, start_time: datetime, duration: float):
         user_data['ongoing_sessions'].append({'name': activity_name, 'start_time': start_time, 'duration': duration})
 
-    def _clear_old_ongoing_sessions(self, user_data, end_time):
+    def _clear_old_ongoing_sessions(self, user_data: dict, end_time: datetime):
         for session in user_data['ongoing_sessions'][:]:
             session_end_time = session['start_time'] + timedelta(seconds=session['duration'])
             if session_end_time + timedelta(seconds=self.session_break_delay_) < end_time:
                 user_data['ongoing_sessions'].remove(session)
                 user_data['sessions'].append(session)
 
-    def get_last_activities(self, guild_id, user_id=None, from_time=None):
+    def get_last_activities(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> Dict[str, float]:
         last_activities = self._get_aggregated_field_activites_as_dict('ongoing_sessions', guild_id, user_id, from_time)
         _log.debug(f'user data for {guild_id}, {user_id} {last_activities} {from_time}')
         return last_activities
 
-    def _get_aggregated_field_activites_as_dict(self, field_name: str, guild_id: int, user_id: Optional[int], from_time: Optional[datetime]):
+    def _get_aggregated_field_activites_as_dict(self, field_name: str, guild_id: IdType, user_id: Optional[IdType], from_time: Optional[datetime]) -> Dict[str, float]:
         assert field_name in ['ongoing_sessions', 'sessions'], "Got invalid field name in query"
         guild_db = self.db_[str(guild_id)]
         match_data = dict()
@@ -159,11 +160,11 @@ class MongoDB(BaseDB):
         _log.debug('Got aggregate activitites for field', field_name, aggregate_activities_data)
         return self._convert_aggregate_data_to_dict(aggregate_activities_data)
 
-    def _convert_aggregate_data_to_dict(self, aggregate_data: List[dict]) -> Dict[str, int]:
+    def _convert_aggregate_data_to_dict(self, aggregate_data: List[dict]) -> Dict[str, float]:
         dict_data = dict([(data['_id'], data['duration']) for data in aggregate_data])
         return dict_data
 
-    def get_aggregated_activities(self, guild_id, user_id=None, from_time=None):
+    def get_aggregated_activities(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> Dict[str, float]:
         aggregated_activities = self._get_aggregated_field_activites_as_dict('sessions', guild_id, user_id, from_time)
         last_activities = self.get_last_activities(guild_id, user_id, from_time)
         for activity, duration in last_activities.items():
@@ -171,20 +172,20 @@ class MongoDB(BaseDB):
         _log.debug(f'user data for {guild_id}, {user_id} {from_time} {aggregated_activities}')
         return aggregated_activities
 
-    def reset_guild_data(self, guild_id):
+    def reset_guild_data(self, guild_id: IdType):
         guild_db = self.db_[str(guild_id)]
         guild_db.drop()
 
-    def delete_guild_data(self, guild_id):
+    def delete_guild_data(self, guild_id: IdType):
         self.reset_guild_data(guild_id)
         user_db = self.db_['blacklisted_user_ids']
         user_db.delete_one({'guild_id': str(guild_id)})
 
-    def reset_user_data(self, guild_id, user_id):
+    def reset_user_data(self, guild_id: IdType, user_id: IdType):
         guild_db = self.db_[str(guild_id)]
         guild_db.delete_one({'user_id':str(user_id)})
 
-    def delete_user_data(self, guild_id, user_id):
+    def delete_user_data(self, guild_id: IdType, user_id: IdType):
         self.reset_user_data(guild_id, user_id)
         user_db = self.db_['blacklisted_user_ids']
         guild_tracker = user_db.find_one({'guild_id':str(guild_id)})
