@@ -24,6 +24,8 @@ class MessageParser():
         command_word = message_str.split()[0]
         if command_word == 'stats':
             await self._parse_stats_message(message)
+        elif command_word == 'server':
+            await self._parse_server_message(message)
         elif command_word == 'reset':
             await self._parse_reset_message(message)
         elif command_word == 'help':
@@ -68,16 +70,38 @@ class MessageParser():
         elif unit_str == "minute":
             return timedelta(minutes=num)
 
-    def _get_message_from_activity_data(self, activity_data: dict, user_name: str, time_region: timedelta=None) -> str:
+    def _get_message_from_activity_data(self, activity_data: dict, user_name: str, time_region: timedelta=None, max_activities: int=15) -> str:
         if not activity_data:
             return f'No play time data available for **{user_name}**. Maybe your game activity isn\'t visible or you didn\'t play anything.'
         time_string = ''
         if time_region:
             time_string = ' from ' + humanize.precisedelta(time_region) + ' ago'
-        reply_string = f'> Play times for **{user_name}**{time_string}:\n'
-        for activity_name, duration in activity_data.items():
-            reply_string += '> **' + activity_name + '**: ' + humanize.precisedelta(timedelta(seconds=round(duration)), minimum_unit='minutes', format='%d') + '\n'
+        reply_string = f'>>> Top play times for **{user_name}**{time_string}:\n\n'
+        sorted_activity_data_list = sorted(activity_data.items(), key=lambda el: el[1], reverse=True)
+        for activity_name, duration in sorted_activity_data_list[:max_activities]:
+            reply_string += '**' + activity_name + '**: ' + humanize.precisedelta(timedelta(seconds=round(duration)), minimum_unit='minutes', format='%d') + '\n'
         return reply_string
+
+    async def _parse_server_message(self, message: Message):
+        message_str = message.content.lower()
+        guild = message.guild
+        _log.debug(f'Getting stats for server {guild.name}')
+        activity_data = None
+        time_region = None
+
+        if re.match(r'.* (\d+|last) (day|week|hour|minute)', message_str):
+            search_res = re.search(r' (\d+|last) (day|week|hour|minute)', message_str)
+            time_region = self._get_time_region_from_string(search_res[1], search_res[2])
+            activity_data = self.bot_.get_aggregated_activity_data(guild.id, from_time = datetime.now() - time_region)
+        elif re.match(r'.* (total|full|forever)', message_str):
+            activity_data = self.bot_.get_aggregated_activity_data(guild.id, from_time=None)
+        else:
+            time_region = timedelta(days=7)
+            activity_data = self.bot_.get_aggregated_activity_data(guild.id, from_time = datetime.now() - time_region)
+
+        _log.debug(f'Got activity data for server {guild.name}: {activity_data} for {time_region}')
+        reply_str = self._get_message_from_activity_data(activity_data, guild.name, time_region)
+        await message.channel.send(reply_str)
 
     async def _parse_reset_message(self, message: Message):
         if 'Rjn_Kirito' not in message.author.name:
