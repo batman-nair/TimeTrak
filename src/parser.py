@@ -110,7 +110,7 @@ class MessageParser():
         target_users = [message.author]
         if message.mentions:
             target_users = message.mentions
-        reply_string = f'Resetting tracked data for {", ".join([user.name for user in target_users])}'
+        reply_string = f'Resetting activity data for {", ".join([user.name for user in target_users])}'
         _log.debug('Reset message ', reply_string)
         for user in target_users:
             self.bot_.reset_user_data(message.guild.id, user.id)
