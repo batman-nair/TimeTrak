@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 from abc import ABCMeta, abstractmethod
 from pymongo import MongoClient
@@ -24,10 +24,10 @@ class BaseDB(metaclass=ABCMeta):
     def add_user_activities_sample(self, guild_id: int, user_id: int, activities: list, start_time: datetime, end_time: datetime):
         return NotImplemented
     @abstractmethod
-    def get_last_user_activities(self, guild_id: int, user_id: int, from_time: Optional[datetime]=None):
+    def get_last_activities(self, guild_id: int, user_id: Optional[int]=None, from_time: Optional[datetime]=None):
         return NotImplemented
     @abstractmethod
-    def get_aggregated_user_activities(self, guild_id: int, user_id: int, from_time: Optional[datetime]=None):
+    def get_aggregated_activities(self, guild_id: int, user_id: Optional[int]=None, from_time: Optional[datetime]=None):
         return NotImplemented
     @abstractmethod
     def reset_guild_data(self, guild_id: int):
@@ -137,35 +137,39 @@ class MongoDB(BaseDB):
                 user_data['ongoing_sessions'].remove(session)
                 user_data['sessions'].append(session)
 
-    def get_last_user_activities(self, guild_id, user_id, from_time=None):
-        guild_db = self.db_[str(guild_id)]
-        user_data = guild_db.find_one({'user_id':str(user_id)})
-        if not user_data:
-            return {}
-        last_user_activities = dict()
-        for activity_data in user_data['ongoing_sessions']:
-            if from_time and from_time > activity_data['start_time']:
-                continue
-            last_user_activities[activity_data['name']] = activity_data['duration']
-        _log.debug(f'user data for {guild_id}, {user_id} {user_data} {from_time} {last_user_activities}')
-        return last_user_activities
+    def get_last_activities(self, guild_id, user_id=None, from_time=None):
+        last_activities = self._get_aggregated_field_activites_as_dict('ongoing_sessions', guild_id, user_id, from_time)
+        _log.debug(f'user data for {guild_id}, {user_id} {last_activities} {from_time}')
+        return last_activities
 
-    def get_aggregated_user_activities(self, guild_id, user_id, from_time=None):
+    def _get_aggregated_field_activites_as_dict(self, field_name: str, guild_id: int, user_id: Optional[int], from_time: Optional[datetime]):
+        assert field_name in ['ongoing_sessions', 'sessions'], "Got invalid field name in query"
         guild_db = self.db_[str(guild_id)]
-        match_data = {'user_id':str(user_id)}
+        match_data = dict()
+        if user_id:
+            match_data['user_id'] = str(user_id)
         if from_time:
-            match_data['sessions.start_time'] = {'$gte':from_time}
+            match_data[f'{field_name}.start_time'] = {'$gte': from_time}
         aggregate_activities_data = guild_db.aggregate([
-            {'$unwind': '$sessions'},
+            {'$unwind': f'${field_name}'},
             {'$match': match_data},
-            {'$group': {'_id':'$sessions.name', 'duration': {'$sum': '$sessions.duration'}}}
+            {'$group': {'_id': f'${field_name}.name',
+                        'duration': {'$sum': f'${field_name}.duration'}}}
             ])
-        aggregate_activities_data = list(aggregate_activities_data)
-        aggregated_user_activities = self.get_last_user_activities(guild_id, user_id, from_time=from_time)
-        for data in aggregate_activities_data:
-            aggregated_user_activities[data['_id']] = aggregated_user_activities.get(data['_id'], 0) + data['duration']
-        _log.debug(f'user data for {guild_id}, {user_id} {from_time} {aggregated_user_activities}')
-        return aggregated_user_activities
+        _log.debug('Got aggregate activitites for field', field_name, aggregate_activities_data)
+        return self._convert_aggregate_data_to_dict(aggregate_activities_data)
+
+    def _convert_aggregate_data_to_dict(self, aggregate_data: List[dict]) -> Dict[str, int]:
+        dict_data = dict([(data['_id'], data['duration']) for data in aggregate_data])
+        return dict_data
+
+    def get_aggregated_activities(self, guild_id, user_id=None, from_time=None):
+        aggregated_activities = self._get_aggregated_field_activites_as_dict('sessions', guild_id, user_id, from_time)
+        last_activities = self.get_last_activities(guild_id, user_id, from_time)
+        for activity, duration in last_activities.items():
+            aggregated_activities[activity] = aggregated_activities.get(activity, 0) + duration
+        _log.debug(f'user data for {guild_id}, {user_id} {from_time} {aggregated_activities}')
+        return aggregated_activities
 
     def reset_guild_data(self, guild_id):
         guild_db = self.db_[str(guild_id)]

@@ -42,16 +42,16 @@ class MessageParser():
         time_region = None
 
         if re.match(r'.* (this|last) session', message_str):
-            activity_data = self.bot_.get_last_user_activity_data(guild.id, target_user.id)
+            activity_data = self.bot_.get_last_activity_data(guild.id, target_user.id)
         elif re.match(r'.* (\d+|last) (day|week|hour|minute)', message_str):
             search_res = re.search(r' (\d+|last) (day|week|hour|minute)', message_str)
             time_region = self._get_time_region_from_string(search_res[1], search_res[2])
-            activity_data = self.bot_.get_aggregated_user_activity_data(guild.id, target_user.id, from_time = datetime.now() - time_region)
+            activity_data = self.bot_.get_aggregated_activity_data(guild.id, target_user.id, from_time = datetime.now() - time_region)
         elif re.match(r'.* (total|full|forever)', message_str):
-            activity_data = self.bot_.get_aggregated_user_activity_data(guild.id, target_user.id, from_time=None)
+            activity_data = self.bot_.get_aggregated_activity_data(guild.id, target_user.id, from_time=None)
         else:
             time_region = timedelta(days=7)
-            activity_data = self.bot_.get_aggregated_user_activity_data(guild.id, target_user.id, from_time = datetime.now() - time_region)
+            activity_data = self.bot_.get_aggregated_activity_data(guild.id, target_user.id, from_time = datetime.now() - time_region)
 
         _log.debug(f'Got activity data for {target_user}: {activity_data} for {time_region}')
         reply_str = self._get_message_from_activity_data(activity_data, target_user.name, time_region)
