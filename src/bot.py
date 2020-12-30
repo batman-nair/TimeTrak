@@ -4,6 +4,7 @@ from typing import Optional, Dict
 import discord
 from .log import Logger
 from .db import BaseDB, IdType
+from .stats import StatsGenerator
 
 _log = Logger('TrakBot')
 
@@ -15,6 +16,7 @@ class TrakBot():
         self.session_break_delay_ = session_break_delay
         self.guild_to_tracked_users_ = {}
         self.guild_user_to_current_activities_ = {}
+        self.stats_gen_ = StatsGenerator(db)
 
     def update_tracker(self):
         current_time = datetime.now()
@@ -69,6 +71,9 @@ class TrakBot():
 
     def reset_user_data(self, guild_id: IdType, user_id: IdType):
         self.db_.reset_user_data(guild_id, user_id)
+
+    def plot_session_weekly_heatmap(self, guild_id: IdType, user_id: Optional[IdType] = None, file_name: str = 'plot.png'):
+        self.stats_gen_.plot_session_heatmap(guild_id, user_id, file_name)
 
 if __name__ == '__main__':
     import os

@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timedelta
 import humanize
 
-from discord import Message
+from discord import Message, File
 from .log import Logger
 from .bot import TrakBot
 
@@ -28,6 +28,8 @@ class MessageParser():
             await self._parse_server_message(message)
         elif command_word == 'reset':
             await self._parse_reset_message(message)
+        elif command_word == 'plot':
+            await self._parse_plot_message(message)
         elif command_word == 'help':
             await self._parse_help_message(message)
         else:
@@ -115,6 +117,19 @@ class MessageParser():
         for user in target_users:
             self.bot_.reset_user_data(message.guild.id, user.id)
         await message.channel.send(reply_string)
+
+    async def _parse_plot_message(self, message: Message):
+        message_str = message.content.lower()
+        target_user_id = None
+        if message.mentions:
+            target_user_id = message.mentions[0].id
+        guild = message.guild
+        if re.match(r'.* server', message_str):
+            target_user_id = None
+        _log.debug(f'Plotting heatmap for {target_user_id}')
+        self.bot_.plot_session_weekly_heatmap(guild.id, target_user_id)
+
+        await message.channel.send(file=File('plot.png'))
 
     async def _parse_help_message(self, message: Message):
         stats_help = f'''`{self.prefix_}stats` gives gamewise play time stats. By default the stats for *a week* is shown.

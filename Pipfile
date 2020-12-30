@@ -8,8 +8,12 @@ discord = "*"
 python-dotenv = "*"
 dnspython = "*"
 humanize = "*"
+matplotlib = "*"
+numpy = "*"
 
 [dev-packages]
+autopep8 = "*"
+rope = "*"
 
 [requires]
 python_version = "3.8"
