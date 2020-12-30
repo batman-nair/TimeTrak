@@ -1,6 +1,7 @@
 import os
 import unittest
 from datetime import datetime, timedelta
+import math
 
 from src.db import MongoDB
 from dotenv import load_dotenv
@@ -87,19 +88,19 @@ class TestMongoDB(unittest.TestCase):
         first_activity_starttime = datetime.now() - timedelta(days=2)
         for user_id in user_list:
             self.mg_.add_user_activities_sample(self.TEST_GUILD, user_id, ['activity1'], first_activity_starttime, first_activity_starttime+timedelta(seconds=60))
-        second_activity_startime = first_activity_starttime + timedelta(days=1)
+        second_activity_starttime = first_activity_starttime + timedelta(days=1)
         self.mg_.add_user_activities_sample(
             self.TEST_GUILD, 'user2', ['activity2'],
-            second_activity_startime,
-            second_activity_startime+timedelta(seconds=60)
+            second_activity_starttime,
+            second_activity_starttime+timedelta(seconds=60)
         )
         self.mg_.add_user_activities_sample(
             self.TEST_GUILD, 'user3', ['activity1'],
-            second_activity_startime,
-            second_activity_startime+timedelta(seconds=60)
+            second_activity_starttime,
+            second_activity_starttime+timedelta(seconds=60)
         )
         all_activities = self.mg_.get_aggregated_activities(self.TEST_GUILD)
-        new_activities = self.mg_.get_aggregated_activities(self.TEST_GUILD, from_time=second_activity_startime-timedelta(seconds=1))
+        new_activities = self.mg_.get_aggregated_activities(self.TEST_GUILD, from_time=second_activity_starttime-timedelta(seconds=1))
         last_activities = self.mg_.get_last_activities(self.TEST_GUILD)
         self.assertEqual(all_activities.get('activity1'), 240, "All activity query is not correct")
         self.assertEqual(all_activities.get('activity2'), 60, "All activity query is not correct")
@@ -108,6 +109,51 @@ class TestMongoDB(unittest.TestCase):
         self.assertEqual(last_activities.get('activity1'), 120, "Last activity query is not correct.")
         self.assertEqual(last_activities.get('activity2'), 60, "Last activity query is not correct.")
 
+    def test_raw_sessions_data(self):
+        user_list = ['user1', 'user2', 'user3']
+        first_activity_starttime = datetime.now() - timedelta(days=2)
+        for user_id in user_list:
+            self.mg_.add_user_activities_sample(self.TEST_GUILD, user_id, ['activity1'], first_activity_starttime, first_activity_starttime+timedelta(seconds=60))
+        second_activity_starttime = first_activity_starttime + timedelta(days=1)
+        self.mg_.add_user_activities_sample(
+            self.TEST_GUILD, 'user2', ['activity2'],
+            second_activity_starttime,
+            second_activity_starttime+timedelta(seconds=60)
+        )
+        self.mg_.add_user_activities_sample(
+            self.TEST_GUILD, 'user3', ['activity1'],
+            second_activity_starttime,
+            second_activity_starttime+timedelta(seconds=60)
+        )
+        first_activity_starttime_expected = first_activity_starttime.replace(microsecond=math.floor(first_activity_starttime.microsecond/1000)*1000)
+        second_activity_starttime_expected = second_activity_starttime.replace(microsecond=math.floor(second_activity_starttime.microsecond/1000)*1000)
+
+        all_sessions_data_expected = [
+            {'name': 'activity1', 'start_time': first_activity_starttime_expected, 'duration': 60.0},
+            {'name': 'activity2', 'start_time': second_activity_starttime_expected, 'duration': 60.0},
+            {'name': 'activity1', 'start_time': first_activity_starttime_expected, 'duration': 60.0},
+            {'name': 'activity1', 'start_time': second_activity_starttime_expected, 'duration': 60.0},
+            {'name': 'activity1', 'start_time': first_activity_starttime_expected, 'duration': 60.0}]
+        user1_sessions_data_expected = [
+            {'name': 'activity1', 'start_time': first_activity_starttime_expected, 'duration': 60.0}]
+        user2_sessions_data_expected = [
+            {'name': 'activity2', 'start_time': second_activity_starttime_expected, 'duration': 60.0},
+            {'name': 'activity1', 'start_time': first_activity_starttime_expected, 'duration': 60.0}]
+        user3_sessions_data_expected = [
+            {'name': 'activity1', 'start_time': second_activity_starttime_expected, 'duration': 60.0},
+            {'name': 'activity1', 'start_time': first_activity_starttime_expected, 'duration': 60.0}]
+        all_sessions_data = self.mg_.get_raw_sessions_data(self.TEST_GUILD)
+        user1_sessions_data = self.mg_.get_raw_sessions_data(self.TEST_GUILD, 'user1')
+        user2_sessions_data = self.mg_.get_raw_sessions_data(self.TEST_GUILD, 'user2')
+        user3_sessions_data = self.mg_.get_raw_sessions_data(self.TEST_GUILD, 'user3')
+        self.assertTrue(len(all_sessions_data) == len(all_sessions_data_expected) and
+                        all([session in all_sessions_data for session in all_sessions_data_expected]), "All sessions data query incorrect")
+        self.assertTrue(len(user1_sessions_data) == len(user1_sessions_data_expected) and
+                        all([session in user1_sessions_data for session in user1_sessions_data_expected]), "User1 sessions data query incorrect")
+        self.assertTrue(len(user2_sessions_data) == len(user2_sessions_data_expected) and
+                        all([session in user2_sessions_data for session in user2_sessions_data_expected]), "User2 sessions data query incorrect")
+        self.assertTrue(len(user3_sessions_data) == len(user3_sessions_data_expected) and
+                        all([session in user3_sessions_data for session in user3_sessions_data_expected]), "User3 sessions data query incorrect")
 
 if __name__ == '__main__':
     unittest.main()

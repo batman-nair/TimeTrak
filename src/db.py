@@ -31,6 +31,9 @@ class BaseDB(metaclass=ABCMeta):
     def get_aggregated_activities(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> Dict[str, float]:
         return NotImplemented
     @abstractmethod
+    def get_raw_sessions_data(self, guild_id: IdType, user_id: Optional[IdType]=None) -> List[dict]:
+        return NotImplemented
+    @abstractmethod
     def reset_guild_data(self, guild_id: IdType):
         return NotImplemented
     @abstractmethod
@@ -171,6 +174,17 @@ class MongoDB(BaseDB):
             aggregated_activities[activity] = aggregated_activities.get(activity, 0) + duration
         _log.debug(f'user data for {guild_id}, {user_id} {from_time} {aggregated_activities}')
         return aggregated_activities
+
+    def get_raw_sessions_data(self, guild_id: IdType, user_id: Optional[IdType]=None) -> List[dict]:
+        guild_db = self.db_[str(guild_id)]
+        match_data = {}
+        if user_id:
+            match_data['user_id'] = str(user_id)
+        raw_sessions_list = [entry['ongoing_sessions'] + entry['sessions']
+                             for entry in guild_db.find(match_data)]
+        raw_sessions = [
+            session for session_list in raw_sessions_list for session in session_list]
+        return raw_sessions
 
     def reset_guild_data(self, guild_id: IdType):
         guild_db = self.db_[str(guild_id)]
