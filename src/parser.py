@@ -120,16 +120,18 @@ class MessageParser():
 
     async def _parse_plot_message(self, message: Message):
         message_str = message.content.lower()
-        target_user_id = None
+        target_user = None
         if message.mentions:
-            target_user_id = message.mentions[0].id
+            target_user = message.mentions[0]
         guild = message.guild
         if re.match(r'.* server', message_str):
-            target_user_id = None
-        _log.debug(f'Plotting heatmap for {target_user_id}')
+            target_user = None
+        _log.debug(f'Plotting heatmap for {target_user}')
+        target_user_id = target_user.id if target_user else None
+        target_user_name = target_user.name if target_user else guild.name
         self.bot_.plot_session_weekly_heatmap(guild.id, target_user_id)
 
-        await message.channel.send(file=File('plot.png'))
+        await message.channel.send(content=f'Weekwise playtime heatmap for {target_user_name}', file=File('plot.png'))
 
     async def _parse_help_message(self, message: Message):
         stats_help = f'''`{self.prefix_}stats` gives gamewise play time stats. By default the stats for *a week* is shown.
@@ -138,6 +140,14 @@ class MessageParser():
         - A specific time frame can be specified in weeks, days, hours or minutes. eg: `{self.prefix_}stats 2 days`
         - Get most recent play time stats with `{self.prefix_}stats last session`.
         '''
-        final_help = '\n'.join([stats_help])
+        server_stats_help = f'''`{self.prefix_}server` is similar to stats but for the whole server.
+        - Time frames can be specified similar to stats like `{self.prefix_}server total` or `{self.prefix_}server 2 days`
+        '''
+        plot_help = f'''`{self.prefix_}plot` gives a heatmap of weekwise playtime stats.
+        - Mention a user to get their heatmap. By default the server stats is given.
+        '''
+        reset_help = f'''`{self.prefix_}reset` allows you reset/clear all the data collected for the user.
+        '''
+        final_help = '\n'.join([stats_help, server_stats_help, plot_help, reset_help])
         await message.channel.send(final_help)
 
