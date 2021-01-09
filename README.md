@@ -39,3 +39,6 @@ I couldn't find a way to test discord based functionality, so there isn't tests 
 
 ## Contributing
 Raise an issue or feel free to contribute if you wish to see a new feature or want to add something. Thanks!
+
+
+_Social image source: arcade PNG Designed By Graphicart from <a href="https://pngtree.com/">Pngtree.com</a>_
