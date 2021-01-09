@@ -26,8 +26,6 @@ class MessageParser():
             await self._parse_stats_message(message)
         elif command_word == 'server':
             await self._parse_server_message(message)
-        elif command_word == 'reset':
-            await self._parse_reset_message(message)
         elif command_word == 'plot':
             await self._parse_plot_message(message)
         elif command_word == 'help':
@@ -105,19 +103,6 @@ class MessageParser():
         reply_str = self._get_message_from_activity_data(activity_data, guild.name, time_region)
         await message.channel.send(reply_str)
 
-    async def _parse_reset_message(self, message: Message):
-        if 'Rjn_Kirito' not in message.author.name:
-            await message.channel.send('I\'m sorry, but you don\'t have the permission to do that... right now anyways')
-            return
-        target_users = [message.author]
-        if message.mentions:
-            target_users = message.mentions
-        reply_string = f'Resetting activity data for {", ".join([user.name for user in target_users])}'
-        _log.debug('Reset message ', reply_string)
-        for user in target_users:
-            self.bot_.reset_user_data(message.guild.id, user.id)
-        await message.channel.send(reply_string)
-
     async def _parse_plot_message(self, message: Message):
         message_str = message.content.lower()
         target_user = None
@@ -146,8 +131,6 @@ class MessageParser():
         plot_help = f'''`{self.prefix_}plot` gives a heatmap of weekwise playtime stats.
         - Mention a user to get their heatmap. By default the server stats is given.
         '''
-        reset_help = f'''`{self.prefix_}reset` allows you reset/clear all the data collected for the user.
-        '''
-        final_help = '\n'.join([stats_help, server_stats_help, plot_help, reset_help])
+        final_help = '\n'.join([stats_help, server_stats_help, plot_help])
         await message.channel.send(final_help)
 
