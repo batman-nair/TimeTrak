@@ -189,7 +189,7 @@ class MongoDB(BaseDB):
             {'$project': {'user_id': '$user_id', 'sessions': {'$concatArrays': ['$sessions', '$ongoing_sessions']}}},
             {'$unwind': '$sessions'},
             {'$match': match_data},
-            {'$project': {'_id': 0, 'name': '$sessions.name', 'duration': '$sessions.duration', 'start_time': '$sessions.start_time'}},
+            {'$project': {'_id': 0, 'name': '$sessions.name', 'duration': '$sessions.duration', 'start_time': '$sessions.start_time', 'user_id': '$user_id'}},
             {'$sort': {'duration': -1}},
             {'$limit': 15}
         ])

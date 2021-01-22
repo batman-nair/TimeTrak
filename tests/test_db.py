@@ -172,8 +172,9 @@ class TestMongoDB(unittest.TestCase):
         longest_activities_data = self.mg_.get_longest_activities(self.TEST_GUILD, 'user1')
         self.assertEqual(longest_activities_data[0]['duration'], 120, "Longest duration info incorrect.")
         self.assertEqual(longest_activities_data[0]['name'], 'activity2', "Longest duration info incorrect.")
+        self.assertEqual(longest_activities_data[0]['user_id'], 'user1', "Longest duration info incorrect.")
         self.assertEqual(longest_activities_data[1]['duration'], 60, "Longest duration info incorrect.")
-        self.assertEqual(longest_activities_data[1]['name'], 'activity1', "Longest duration info incorrect.")
+        self.assertEqual(longest_activities_data[1]['user_id'], 'user1', "Longest duration info incorrect.")
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 import discord
 from .log import Logger
@@ -68,6 +68,9 @@ class TrakBot():
 
     def get_last_activity_data(self, guild_id: IdType, user_id: IdType) -> Dict[str, float]:
         return self.db_.get_last_activities(guild_id, user_id)
+
+    def get_longest_activity_data(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> List[dict]:
+        return self.db_.get_longest_activities(guild_id, user_id, from_time)
 
     def reset_user_data(self, guild_id: IdType, user_id: IdType):
         self.db_.reset_user_data(guild_id, user_id)

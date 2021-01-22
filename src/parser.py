@@ -1,8 +1,9 @@
 import re
 from datetime import datetime, timedelta
+from typing import List, Optional
 import humanize
 
-from discord import Message, File
+from discord import Message, File, Guild
 from .log import Logger
 from .bot import TrakBot
 
@@ -28,6 +29,8 @@ class MessageParser():
             await self._parse_server_message(message)
         elif command_word == 'plot':
             await self._parse_plot_message(message)
+        elif command_word == 'longest':
+            await self._parse_longest_message(message)
         elif command_word == 'help':
             await self._parse_help_message(message)
         else:
@@ -117,6 +120,35 @@ class MessageParser():
         self.bot_.plot_session_weekly_heatmap(guild.id, target_user_id)
 
         await message.channel.send(content=f'Weekwise playtime heatmap for {target_user_name}', file=File('plot.png'))
+
+    async def _parse_longest_message(self, message: Message):
+        message_str = message.content.lower()
+        target_user = message.author
+        if message.mentions:
+            target_user = message.mentions[0]
+        if re.match(r'.* server', message_str):
+            target_user = None
+        guild = message.guild
+        _log.debug(f'Getting longest activity data for {target_user}')
+        target_user_id = target_user.id if target_user else None
+        target_user_name = target_user.name if target_user else None
+        longest_activity_data = self.bot_.get_longest_activity_data(guild.id, target_user_id)
+        reply_str = self._get_message_from_longest_activites(longest_activity_data, target_user_name, guild)
+        await message.channel.send(reply_str)
+
+    def _get_message_from_longest_activites(self, longest_activities: List[dict], target_user: Optional[str], guild: Guild, max_activities: int=10) -> str:
+        user_name = target_user if target_user else guild.name
+        if not longest_activities:
+            return f'No play time data available for **{user_name}**. Maybe your game activity isn\'t visible or you didn\'t play anything.'
+        reply_str = f'>>> Longest sessions for {user_name}\n\n'
+        for activity in longest_activities[:max_activities]:
+            reply_str += '**' + activity['name'] + '**: ' + humanize.precisedelta(timedelta(seconds=round(activity['duration'])), minimum_unit='minutes', format='%d') + '\n'
+            reply_str += '_' + humanize.naturaldate(activity['start_time'])# + '_ '
+            if not target_user:
+                reply_str += ' by ' + guild.get_member(int(activity['user_id'])).name
+            reply_str += '_ \n'
+        return reply_str
+
 
     async def _parse_help_message(self, message: Message):
         stats_help = f'''`{self.prefix_}stats` gives gamewise play time stats. By default the stats for *a week* is shown.
