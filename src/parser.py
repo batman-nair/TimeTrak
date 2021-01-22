@@ -143,7 +143,7 @@ class MessageParser():
         reply_str = f'>>> Longest sessions for {user_name}\n\n'
         for activity in longest_activities[:max_activities]:
             reply_str += '**' + activity['name'] + '**: ' + humanize.precisedelta(timedelta(seconds=round(activity['duration'])), minimum_unit='minutes', format='%d') + '\n'
-            reply_str += '_' + humanize.naturaldate(activity['start_time'])# + '_ '
+            reply_str += '- _' + humanize.naturaldate(activity['start_time'])
             if not target_user:
                 reply_str += ' by ' + guild.get_member(int(activity['user_id'])).name
             reply_str += '_ \n'
@@ -163,6 +163,10 @@ class MessageParser():
         plot_help = f'''`{self.prefix_}plot` gives a heatmap of weekwise playtime stats.
         - Mention a user to get their heatmap. By default the server stats is given.
         '''
-        final_help = '\n'.join([stats_help, server_stats_help, plot_help])
+        longest_help = f'''`{self.prefix_}longest` gives the top 10 longest sessions you had.
+        - Mention a user to get their longest sessions.
+        - Get longest sessions in the server with `{self.prefix_}longest server`.
+        '''
+        final_help = '\n'.join([stats_help, server_stats_help, plot_help, longest_help])
         await message.channel.send(final_help)
 
