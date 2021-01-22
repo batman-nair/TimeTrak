@@ -31,6 +31,9 @@ class BaseDB(metaclass=ABCMeta):
     def get_aggregated_activities(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> Dict[str, float]:
         return NotImplemented
     @abstractmethod
+    def get_longest_activities(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> List[dict]:
+        return NotImplemented
+    @abstractmethod
     def get_raw_sessions_data(self, guild_id: IdType, user_id: Optional[IdType]=None) -> List[dict]:
         return NotImplemented
     @abstractmethod
@@ -174,6 +177,23 @@ class MongoDB(BaseDB):
             aggregated_activities[activity] = aggregated_activities.get(activity, 0) + duration
         _log.debug(f'user data for {guild_id}, {user_id} {from_time} {aggregated_activities}')
         return aggregated_activities
+
+    def get_longest_activities(self, guild_id: IdType, user_id: Optional[IdType]=None, from_time: Optional[datetime]=None) -> List[dict]:
+        guild_db = self.db_[str(guild_id)]
+        match_data = dict()
+        if user_id:
+            match_data['user_id'] = str(user_id)
+        if from_time:
+            match_data['sessions.start_time'] = {'$gte': from_time}
+        longest_activites_data = guild_db.aggregate([
+            {'$project': {'user_id': '$user_id', 'sessions': {'$concatArrays': ['$sessions', '$ongoing_sessions']}}},
+            {'$unwind': '$sessions'},
+            {'$match': match_data},
+            {'$project': {'_id': 0, 'name': '$sessions.name', 'duration': '$sessions.duration', 'start_time': '$sessions.start_time'}},
+            {'$sort': {'duration': -1}},
+            {'$limit': 15}
+        ])
+        return list(longest_activites_data)
 
     def get_raw_sessions_data(self, guild_id: IdType, user_id: Optional[IdType]=None) -> List[dict]:
         guild_db = self.db_[str(guild_id)]

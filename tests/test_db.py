@@ -155,5 +155,25 @@ class TestMongoDB(unittest.TestCase):
         self.assertTrue(len(user3_sessions_data) == len(user3_sessions_data_expected) and
                         all([session in user3_sessions_data for session in user3_sessions_data_expected]), "User3 sessions data query incorrect")
 
+    def test_longest_activity(self):
+        first_activity_starttime = datetime.now() - timedelta(days=2)
+        self.mg_.add_user_activities_sample(self.TEST_GUILD, 'user1', ['activity1'], first_activity_starttime, first_activity_starttime+timedelta(seconds=60))
+        second_activity_starttime = first_activity_starttime + timedelta(days=1)
+        self.mg_.add_user_activities_sample(
+            self.TEST_GUILD, 'user1', ['activity2'],
+            second_activity_starttime,
+            second_activity_starttime+timedelta(seconds=60)
+        )
+        self.mg_.add_user_activities_sample(
+            self.TEST_GUILD, 'user1', ['activity2'],
+            second_activity_starttime+timedelta(seconds=60),
+            second_activity_starttime+timedelta(seconds=120)
+        )
+        longest_activities_data = self.mg_.get_longest_activities(self.TEST_GUILD, 'user1')
+        self.assertEqual(longest_activities_data[0]['duration'], 120, "Longest duration info incorrect.")
+        self.assertEqual(longest_activities_data[0]['name'], 'activity2', "Longest duration info incorrect.")
+        self.assertEqual(longest_activities_data[1]['duration'], 60, "Longest duration info incorrect.")
+        self.assertEqual(longest_activities_data[1]['name'], 'activity1', "Longest duration info incorrect.")
+
 if __name__ == '__main__':
     unittest.main()
