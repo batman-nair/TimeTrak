@@ -22,6 +22,10 @@ If you have games on multiple platforms - Steam, Epic, Origin, Xbox etc, you'll 
 `-plot` gives a heatmap of weekwise playtime stats.
   - Mention a user to get their heatmap. By default the server stats is given.
   
+`-longest` gives the top 10 longest sessions you had.
+  - Mention a user to get their longest sessions.
+  - Get longest sessions in the server with `-longest server`.
+  
 `-help` prints out this list of commands if you ever need them.
 
 ## How it works?
